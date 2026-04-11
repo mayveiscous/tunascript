@@ -15,7 +15,15 @@ Tunascript is licensed under the MIT License.
 ## Installation
 
 1. Download the latest release
-3. Add the file to your PATH
+2. Find the executable and copy its path, something like the following:
+
+```bash
+   C:/Program Files/Tunascript/bin/
+```
+
+3. Open your Edit Environment Variables and navigate to User Variables
+4. Edit your User Variables and create a new variable 
+5. Paste the path to the executable into that variable and save the changes.
 
 ---
 
@@ -33,13 +41,13 @@ tunascript swim file.tuna
 
 ### Variables
 
-```ts
+```tuna
 catch name: string = "tuna"
 ```
 
 ### Functions
 
-```ts
+```tuna
 swim add(a: number, b: number): number
   serve a + b
 shore
@@ -47,7 +55,7 @@ shore
 
 ### Conditionals
 
-```ts
+```tuna
 catch isAwesome: bool = true
 if isAwesome
   bubble("Tunascript is awesome!")
@@ -58,7 +66,7 @@ shore
 
 ### Loops
 
-```ts
+```tuna
 catch i: number = 0
 while i < 10
   bubble(i)
