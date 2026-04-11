@@ -1,0 +1,73 @@
+><> ── 03 · Functions ──────────────────────────────────────────
+
+><> Basic function
+swim add(a: number, b: number): number
+  serve a + b
+shore
+
+bubble(add(3, 4))
+bubble(add(10, -2))
+
+><> String return
+swim greet(name: string): string
+  serve "hello, " + name
+shore
+
+bubble(greet("tuna"))
+
+><> Calling builtins inside a function
+swim clamp(val: number, lo: number, hi: number): number
+  serve min(hi, max(lo, val))
+shore
+
+bubble(clamp(5, 0, 10))
+bubble(clamp(-3, 0, 10))
+bubble(clamp(99, 0, 10))
+
+><> Composing functions
+swim square(n: number): number
+  serve n * n
+shore
+
+swim sumOfSquares(a: number, b: number): number
+  serve square(a) + square(b)
+shore
+
+bubble(sumOfSquares(3, 4))
+
+><> Recursive factorial
+swim factorial(n: number): number
+  if n <= 1
+    serve 1
+  shore
+  serve n * factorial(n - 1)
+shore
+
+bubble(factorial(1))
+bubble(factorial(5))
+bubble(factorial(10))
+
+><> Recursive fibonacci
+swim fib(n: number): number
+  if n <= 1
+    serve n
+  shore
+  serve fib(n - 1) + fib(n - 2)
+shore
+
+bubble(fib(0))
+bubble(fib(7))
+bubble(fib(10))
+
+><> Early return inside a loop
+swim firstPositive(arr: []number): number
+  for n in arr
+    if n > 0
+      serve n
+    shore
+  shore
+  serve -1
+shore
+
+bubble(firstPositive([-3, -1, 4, 2]))
+bubble(firstPositive([-1, -2, -3]))

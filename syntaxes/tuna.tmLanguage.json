@@ -1,0 +1,38 @@
+{
+  "name": "TunaScript",
+  "scopeName": "source.tuna",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#keywords" },
+    { "include": "#booleans" },
+    { "include": "#numbers" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "match": "><>.*$",
+      "name": "comment.line.tuna"
+    },
+    "strings": {
+      "match": "\"[^\"]*\"",
+      "name": "string.quoted.double.tuna"
+    },
+    "keywords": {
+      "match": "\\b(catch|anchor|swim|serve|shore|if|else|while|for|in)\\b",
+      "name": "keyword.control.tuna"
+    },
+    "booleans": {
+      "match": "\\b(true|false)\\b",
+      "name": "constant.language.boolean.tuna"
+    },
+    "numbers": {
+      "match": "\\b[0-9]+(\\.[0-9]+)?\\b",
+      "name": "constant.numeric.tuna"
+    },
+    "operators": {
+      "match": "(==|!=|<=|>=|\\+=|-=|\\*=|[+\\-*/%=<>!])",
+      "name": "keyword.operator.tuna"
+    }
+  }
+}
