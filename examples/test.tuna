@@ -13,7 +13,7 @@ catch s: string = "hello"
 catch b: bool = false
 
 ><> types are inferred if not explictly provided
-catch nothing: array = nil
+catch nothing = nil
 
 bubble(typeof n)
 bubble(typeof s)
