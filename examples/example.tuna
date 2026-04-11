@@ -1,0 +1,7 @@
+bubble(math.sqrt(144))
+bubble(string.upper("tuna"))
+bubble(array.first([1, 2, 3]))
+
+catch pi = math.pi
+catch msg = string.repeat("~", 10)
+bubble(pi, msg)

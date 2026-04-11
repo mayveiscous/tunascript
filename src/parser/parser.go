@@ -43,6 +43,18 @@ type CallExpression struct {
 
 type ArrayLiteral struct{ Elements []Expression }
 
+type ObjectProperty struct {
+	Key   string
+	Value Expression
+}
+
+type ObjectLiteral struct{ Properties []ObjectProperty }
+
+type MemberExpression struct {
+	Object   Expression
+	Property string
+}
+
 type PostfixExpression struct {
 	Operator lexer.Token
 	Left     Expression
@@ -53,6 +65,8 @@ type TypeofExpression struct {
 }
 
 func (n ArrayLiteral) expression()         {}
+func (n ObjectLiteral) expression()        {}
+func (n MemberExpression) expression()     {}
 func (n CallExpression) expression()       {}
 func (n NumberExpression) expression()     {}
 func (n StringExpression) expression()     {}
@@ -201,6 +215,7 @@ func createTokenLookups() {
 	led_reg(lexer.OPEN_PAREN, call_bp, parse_call_expression)
 
 	led_reg(lexer.OPEN_BRACKET, member_bp, parse_index_expression)
+	led_reg(lexer.DOT, member_bp, parse_member_expression)
 
 	led_reg(lexer.PLUS_PLUS, unary_bp, parse_postfix_expression)
 	led_reg(lexer.MINUS_MINUS, unary_bp, parse_postfix_expression)
@@ -212,6 +227,7 @@ func createTokenLookups() {
 	nud_reg(lexer.DASH, parse_prefix_expression)
 	nud_reg(lexer.NOT, parse_prefix_expression)
 	nud_reg(lexer.OPEN_BRACKET, parse_array_literal)
+	nud_reg(lexer.OPEN_CURLY, parse_object_literal)
 	nud_reg(lexer.TRUE, parse_primary_expression)
 	nud_reg(lexer.FALSE, parse_primary_expression)
 	nud_reg(lexer.NULL, parse_primary_expression)
@@ -559,7 +575,7 @@ func parse_symbol_type(p *parser) AstType {
 	name := tok.Value
 	validTypes := map[string]bool{
 		 "number": true, "string": true, "bool": true,
-		 "function": true, "void": true, "null": true, "array": true,
+		 "function": true, "void": true, "null": true, "array": true, "object": true,
 	}
 	if !validTypes[name] {
 		 panic(lexer.NewError(tok.Line, tok.Column,
@@ -588,4 +604,26 @@ func parse_typeof_expression(p *parser) Expression {
 	p.advance()
 	expr := parse_expression(p, unary_bp)
 	return TypeofExpression{Expr: expr}
+}
+
+func parse_object_literal(p *parser) Expression {
+	p.advance() // consume '{'
+	properties := []ObjectProperty{}
+	for p.hasTokens() && p.currentTokenKind() != lexer.CLOSE_CURLY {
+		key := p.expectError(lexer.IDENT, p.parseError("expected property name in object literal")).Value
+		p.expectError(lexer.COLON, p.parseError(fmt.Sprintf("expected ':' after property '%s'", key)))
+		value := parse_expression(p, assignment_bp)
+		properties = append(properties, ObjectProperty{Key: key, Value: value})
+		if p.currentTokenKind() == lexer.COMMA {
+			p.advance()
+		}
+	}
+	p.expect(lexer.CLOSE_CURLY)
+	return ObjectLiteral{Properties: properties}
+}
+
+func parse_member_expression(p *parser, left Expression, bp BindingPower) Expression {
+	p.advance() // consume '.'
+	prop := p.expectError(lexer.IDENT, p.parseError("expected property name after '.'")).Value
+	return MemberExpression{Object: left, Property: prop}
 }

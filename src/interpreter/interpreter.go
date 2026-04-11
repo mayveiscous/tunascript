@@ -16,6 +16,7 @@ const (
 	NullVal
 	FunctionVal
 	ArrayVal
+	ObjectVal
 )
 
 func (k ValueKind) String() string {
@@ -32,6 +33,8 @@ func (k ValueKind) String() string {
 		return "function"
 	case ArrayVal:
 		return "array"
+	case ObjectVal:
+		return "object"
 	default:
 		return "unknown"
 	}
@@ -175,7 +178,7 @@ func checkType(label string, val RuntimeValue, expected parser.AstType) {
 		}
 		validTypes := map[string]bool{
 			 "number": true, "string": true, "bool": true,
-			 "function": true, "void": true, "null": true, "array": true,
+			 "function": true, "void": true, "null": true, "array": true, "object": true,
 		}
 		if !validTypes[want] {
 			 panic(fmt.Sprintf("unknown type '%s': valid types are number, string, bool, function, void, null, array", want))
@@ -394,6 +397,25 @@ func EvaluateExpression(expr parser.Expression, env *Environment, ctx execContex
 		}
 		return RuntimeValue{Kind: ArrayVal, Value: elements}
 
+	case parser.ObjectLiteral:
+		props := map[string]RuntimeValue{}
+		for _, prop := range e.Properties {
+			props[prop.Key] = EvaluateExpression(prop.Value, env, ctx)
+		}
+		return RuntimeValue{Kind: ObjectVal, Value: props}
+
+	case parser.MemberExpression:
+		obj := EvaluateExpression(e.Object, env, ctx)
+		if obj.Kind != ObjectVal {
+			panic(fmt.Sprintf("cannot access property '%s' on type '%s'", e.Property, obj.Kind))
+		}
+		props := obj.Value.(map[string]RuntimeValue)
+		val, ok := props[e.Property]
+		if !ok {
+			panic(fmt.Sprintf("property '%s' does not exist on object", e.Property))
+		}
+		return val
+
 	case parser.PrefixExpression:
 		return EvaluatePrefixExpression(e, env, ctx)
 
@@ -530,6 +552,18 @@ func EvaluateBinaryExpression(e parser.BinaryExpression, env *Environment, ctx e
 }
 
 func EvaluateAssignmentExpression(e parser.AssignmentExpression, env *Environment, ctx execContext) RuntimeValue {
+	// obj.key = val
+	if mem, ok := e.Assigne.(parser.MemberExpression); ok {
+		obj := EvaluateExpression(mem.Object, env, ctx)
+		if obj.Kind != ObjectVal {
+			panic(fmt.Sprintf("cannot assign property '%s' on type '%s'", mem.Property, obj.Kind))
+		}
+		rhs := EvaluateExpression(e.Value, env, ctx)
+		obj.Value.(map[string]RuntimeValue)[mem.Property] = rhs
+		return rhs
+	}
+
+	// arr[i] = val
 	if idx, ok := e.Assigne.(parser.IndexExpression); ok {
 		arrVal := EvaluateExpression(idx.Left, env, ctx)
 		if arrVal.Kind != ArrayVal {
