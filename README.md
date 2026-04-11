@@ -70,6 +70,7 @@ shore
 catch i: number = 0
 while i < 10
   bubble(i)
+  i++
 shore
 
 catch fish: []string = ["salmon", "mackeral", "tuna"]
