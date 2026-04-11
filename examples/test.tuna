@@ -1,41 +1,171 @@
-><> ── 03 · Functions ──────────────────────────────────────────
+catch name: string = "tuna"
+catch age: number = 3
+catch alive: bool = true
+anchor MAX: number = 100
 
-><> Basic function
+bubble("name: " + name)
+bubble("age:  " + toString(age))
+bubble("max:  " + toString(MAX))
+
+
+catch n: number = 42
+catch s: string = "hello"
+catch b: bool = false
+
+><> types are inferred if not explictly provided
+catch nothing: array = nil
+
+bubble(typeof n)
+bubble(typeof s)
+bubble(typeof b)
+bubble(typeof nothing)
+
+catch x: number = 10
+catch y: number = 3
+
+bubble(x + y)
+bubble(x - y)
+bubble(x * y)
+bubble(x / y)
+bubble(x % y)
+
+x += 5
+bubble(x)
+x -= 3
+bubble(x)
+x *= 2
+bubble(x)
+x /= 4
+bubble(x)
+
+catch i: number = 0
+i++
+i++
+i++
+bubble(i)
+i--
+bubble(i)
+
+
+catch firstName: string = "tuna"
+catch lastName: string = "script"
+bubble(firstName + lastName)
+bubble(upper(firstName + lastName))
+bubble(len(firstName))
+bubble(contains("tunascript", "tuna"))
+bubble(split("one,two,three", ","))
+bubble(join(["a", "b", "c"], " | "))
+
+bubble("line one\nline two")
+bubble("tabbed:\there")
+
+
+catch score: number = 74
+
+if score >= 90
+  bubble("grade: A")
+else if score >= 80
+  bubble("grade: B")
+else if score >= 70
+  bubble("grade: C")
+else
+  bubble("grade: F")
+shore
+
+
+catch hungry: bool = true
+catch hasFood: bool = true
+
+if hungry and hasFood
+  bubble("time to eat")
+shore
+
+if !hungry or !hasFood
+  bubble("not eating")
+else
+  bubble("definitely eating")
+shore
+
+
+catch count: number = 0
+while count < 5
+  bubble(count)
+  count++
+shore
+
+catch j: number = 0
+while j < 100
+  if j == 4
+    break
+  shore
+  bubble(j)
+  j++
+shore
+
+catch k: number = 0
+while k < 6
+  k++
+  if k == 3
+    continue
+  shore
+  bubble(k)
+shore
+
+
+catch fish: []string = ["salmon", "mackerel", "tuna", "cod"]
+
+for f in fish
+  bubble(f)
+shore
+
+for f in fish
+  if f == "tuna"
+    bubble("found the tuna!")
+  shore
+shore
+
+
+catch nums: []number = [3, 1, 4, 1, 5, 9, 2, 6]
+
+bubble(len(nums))
+bubble(first(nums))
+bubble(last(nums))
+bubble(sort(nums))
+bubble(slice(nums, 0, 4))
+bubble(contains(nums, 9))
+
+catch nums2: []number = push(nums, 99)
+bubble(last(nums2))
+
+catch nums3: []number = pop(nums2)
+bubble(len(nums3))
+
+catch squares: []number = []
+catch idx: number = 1
+while idx <= 5
+  squares = push(squares, idx * idx)
+  idx++
+shore
+bubble(squares)
+
+
 swim add(a: number, b: number): number
   serve a + b
 shore
 
-bubble(add(3, 4))
-bubble(add(10, -2))
-
-><> String return
-swim greet(name: string): string
-  serve "hello, " + name
+swim greet(who: string): string
+  serve "hello, " + who + "!"
 shore
 
-bubble(greet("tuna"))
-
-><> Calling builtins inside a function
 swim clamp(val: number, lo: number, hi: number): number
   serve min(hi, max(lo, val))
 shore
 
-bubble(clamp(5, 0, 10))
-bubble(clamp(-3, 0, 10))
-bubble(clamp(99, 0, 10))
+bubble(add(3, 7))
+bubble(greet("tuna"))
+bubble(clamp(150, 0, 100))
+bubble(clamp(-5, 0, 100))
 
-><> Composing functions
-swim square(n: number): number
-  serve n * n
-shore
-
-swim sumOfSquares(a: number, b: number): number
-  serve square(a) + square(b)
-shore
-
-bubble(sumOfSquares(3, 4))
-
-><> Recursive factorial
 swim factorial(n: number): number
   if n <= 1
     serve 1
@@ -43,31 +173,48 @@ swim factorial(n: number): number
   serve n * factorial(n - 1)
 shore
 
-bubble(factorial(1))
 bubble(factorial(5))
 bubble(factorial(10))
 
-><> Recursive fibonacci
-swim fib(n: number): number
-  if n <= 1
-    serve n
-  shore
-  serve fib(n - 1) + fib(n - 2)
+swim square(n: number): number
+  serve n * n
 shore
 
-bubble(fib(0))
-bubble(fib(7))
-bubble(fib(10))
-
-><> Early return inside a loop
-swim firstPositive(arr: []number): number
-  for n in arr
-    if n > 0
-      serve n
-    shore
-  shore
-  serve -1
+swim hypotenuse(a: number, b: number): number
+  serve sqrt(square(a) + square(b))
 shore
 
-bubble(firstPositive([-3, -1, 4, 2]))
-bubble(firstPositive([-1, -2, -3]))
+bubble(hypotenuse(3, 4))
+bubble(hypotenuse(5, 12))
+
+bubble(abs(-42))
+bubble(floor(3.9))
+bubble(ceil(3.1))
+bubble(round(3.5))
+bubble(pow(2, 8))
+bubble(sqrt(144))
+bubble(min(10, 20))
+bubble(max(10, 20))
+
+bubble(toString(123))
+bubble(toString(true))
+bubble(toNumber("3.14"))
+bubble(toNumber(false))
+
+swim fizzBuzz(n: number): string
+  if n % 15 == 0
+    serve "FizzBuzz"
+  else if n % 3 == 0
+    serve "Fizz"
+  else if n % 5 == 0
+    serve "Buzz"
+  else
+    serve toString(n)
+  shore
+shore
+
+catch fb: number = 1
+while fb <= 20
+  bubble(fizzBuzz(fb))
+  fb++
+shore

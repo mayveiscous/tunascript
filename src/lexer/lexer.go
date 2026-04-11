@@ -293,7 +293,6 @@ func numberHandler(lex *lexer, regex *regexp.Regexp) {
 func stringHandler(lex *lexer, regex *regexp.Regexp) {
 	match := regex.FindStringIndex(lex.remainder())
 	raw := lex.remainder()[match[0]+1 : match[1]-1]
-	// Process escape sequences
 	var buf []byte
 	i := 0
 	for i < len(raw) {

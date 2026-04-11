@@ -51,7 +51,7 @@ type FunctionValue struct {
 	Parameters []parser.FunctionParameter
 	ReturnType parser.AstType
 	Body       parser.BlockStatement
-	Env        *Environment // declaration-scope environment (for closures)
+	Env        *Environment
 }
 
 type BreakSignal struct{}
@@ -121,7 +121,6 @@ func (e *Environment) Get(name string) RuntimeValue {
 	panic(fmt.Sprintf("undefined variable '%s'", name))
 }
 
-// GetDeclaredType walks up the scope chain to find the declared type of a variable.
 func (e *Environment) GetDeclaredType(name string) parser.AstType {
 	if t, ok := e.declaredTypes[name]; ok {
 		return t
@@ -132,7 +131,6 @@ func (e *Environment) GetDeclaredType(name string) parser.AstType {
 	return nil
 }
 
-// resolveTypeName maps an AstType to a ValueKind string for type checking.
 func resolveTypeName(t parser.AstType) string {
 	switch v := t.(type) {
 	case parser.SymbolType:
@@ -155,14 +153,12 @@ func checkType(label string, val RuntimeValue, expected parser.AstType) {
 	switch exp := expected.(type) {
 	case parser.ArrayType:
 		if val.Kind == NullVal {
-			// typed declaration with no initializer — null is a valid zero value for arrays
 			return
 		}
 		if val.Kind != ArrayVal {
 			want := resolveTypeName(expected)
 			panic(fmt.Sprintf("type mismatch for '%s': expected '%s' but got '%s'", label, want, val.Kind.String()))
 		}
-		// Check element types
 		elemTypeName := resolveTypeName(exp.Underlying)
 		if elemTypeName != "" {
 			for _, elem := range val.Value.([]RuntimeValue) {
@@ -175,24 +171,26 @@ func checkType(label string, val RuntimeValue, expected parser.AstType) {
 	case parser.SymbolType:
 		want := exp.Name
 		if want == "" {
-			return
+			 return
 		}
+		validTypes := map[string]bool{
+			 "number": true, "string": true, "bool": true,
+			 "function": true, "void": true, "null": true, "array": true,
+		}
+		if !validTypes[want] {
+			 panic(fmt.Sprintf("unknown type '%s': valid types are number, string, bool, function, void, null, array", want))
+		}
+  
 		if val.Kind == NullVal {
-			// typed declaration with no initializer — skip check, null is zero value
-			return
+			 return
 		}
 		got := val.Kind.String()
 		if got != want {
-			panic(fmt.Sprintf("type mismatch for '%s': expected '%s' but got '%s'", label, want, got))
+			 panic(fmt.Sprintf("type mismatch for '%s': expected '%s' but got '%s'", label, want, got))
 		}
 	}
 }
 
-// inLoop and inFunction are used to validate break/continue/serve at runtime
-// They are goroutine-local via a simple counter approach on the call stack.
-// We use a context struct threaded through eval instead — simpler: track via recover tags.
-
-// execContext tracks what control structures we are inside.
 type execContext struct {
 	inLoop     bool
 	inFunction bool
@@ -201,7 +199,6 @@ type execContext struct {
 func Interpret(block parser.BlockStatement) RuntimeValue {
 	env := NewEnvironment(nil)
 	registerBuiltins(env)
-	// Snapshot builtin names so we can warn on overwrite
 	builtinNames = map[string]bool{}
 	for k := range env.variables {
 		builtinNames[k] = true
@@ -214,7 +211,6 @@ func Interpret(block parser.BlockStatement) RuntimeValue {
 	return result
 }
 
-// builtinNames holds the set of names registered as builtins (for warning).
 var builtinNames map[string]bool
 
 func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext) RuntimeValue {
@@ -228,7 +224,6 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 			val = EvaluateExpression(s.AssignedValue, env, ctx)
 			checkType(s.VariableName, val, s.ExplicitType)
 		}
-		// If typed with no initializer, skip type check (null is the zero value)
 		if s.IsConstant {
 			env.SetConst(s.VariableName, val)
 		} else {
@@ -280,7 +275,6 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 						case BreakSignal:
 							shouldBreak = true
 						case ContinueSignal:
-							// just stop this iteration, condition re-evaluates next
 						default:
 							panic(r)
 						}
@@ -309,7 +303,6 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 						case BreakSignal:
 							shouldBreak = true
 						case ContinueSignal:
-							// just stop this iteration
 						default:
 							panic(r)
 						}
@@ -329,7 +322,7 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 				Parameters: s.Parameters,
 				ReturnType: s.ReturnType,
 				Body:       s.Body,
-				Env:        env, // capture declaration scope
+				Env:        env,
 			},
 		}
 		if builtinNames[s.Name] {
@@ -352,7 +345,6 @@ func EvaluateBlock(block parser.BlockStatement, env *Environment, ctx execContex
 	return result
 }
 
-// tunaError formats a user-facing [TunaScript Error] message.
 func tunaError(msg string) string {
 	return fmt.Sprintf("\033[31m[TunaScript Error]\033[0m %s", msg)
 }
@@ -387,7 +379,6 @@ func EvaluateExpression(expr parser.Expression, env *Environment, ctx execContex
 			return arr[i]
 		}
 		if left.Kind == StringVal {
-			// Unicode-safe: index by rune
 			runes := []rune(left.Value.(string))
 			if i < 0 || i >= len(runes) {
 				panic(fmt.Sprintf("index %d out of bounds (length %d)", i, len(runes)))
@@ -444,7 +435,6 @@ func EvaluatePrefixExpression(e parser.PrefixExpression, env *Environment, ctx e
 }
 
 func EvaluateBinaryExpression(e parser.BinaryExpression, env *Environment, ctx execContext) RuntimeValue {
-	// Short-circuit logical operators before evaluating right side
 	if e.Operator.Kind == lexer.AND {
 		left := EvaluateExpression(e.Left, env, ctx)
 		if !isTruthy(left) {
@@ -540,7 +530,6 @@ func EvaluateBinaryExpression(e parser.BinaryExpression, env *Environment, ctx e
 }
 
 func EvaluateAssignmentExpression(e parser.AssignmentExpression, env *Environment, ctx execContext) RuntimeValue {
-	// Support index assignment: xs[0] = val
 	if idx, ok := e.Assigne.(parser.IndexExpression); ok {
 		arrVal := EvaluateExpression(idx.Left, env, ctx)
 		if arrVal.Kind != ArrayVal {
@@ -605,13 +594,11 @@ func EvaluateAssignmentExpression(e parser.AssignmentExpression, env *Environmen
 		panic(fmt.Sprintf("unknown assignment operator '%s'", e.Operator.Value))
 	}
 
-	// Enforce declared type on reassignment
 	declaredType := env.GetDeclaredType(symbol.Value)
 	if declaredType != nil {
 		checkType(symbol.Value, newVal, declaredType)
 	}
 
-	// Warn if overwriting a builtin
 	if builtinNames[symbol.Value] {
 		fmt.Printf("\033[33m[TunaScript Warning]\033[0m overwriting builtin '%s'\n", symbol.Value)
 	}
@@ -640,7 +627,6 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execC
 				f.Name, len(f.Parameters), len(e.Arguments)))
 		}
 
-		// Use the declaration-scope environment as parent (lexical scoping / closures)
 		declEnv := f.Env
 		if declEnv == nil {
 			declEnv = env
@@ -648,7 +634,6 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execC
 		fnEnv := NewEnvironment(declEnv)
 		for i, param := range f.Parameters {
 			argVal := EvaluateExpression(e.Arguments[i], env, ctx)
-			// Enforce parameter types
 			if param.Type != nil {
 				checkType(param.Name, argVal, param.Type)
 			}
@@ -656,7 +641,6 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execC
 		}
 
 		result := RuntimeValue{Kind: NullVal}
-		// Functions run with inFunction=true but inherit inLoop=false (break/continue cannot cross boundary)
 		fnCtx := execContext{inLoop: false, inFunction: true}
 		func() {
 			defer func() {
@@ -671,7 +655,6 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execC
 			}()
 			EvaluateBlock(f.Body, fnEnv, fnCtx)
 		}()
-		// Check return type for fall-through (no serve executed): null is only valid if no return type declared
 		if f.ReturnType != nil && result.Kind == NullVal {
 			want := resolveTypeName(f.ReturnType)
 			if want != "" && want != "null" {
@@ -701,7 +684,7 @@ func EvaluatePostfixExpression(e parser.PostfixExpression, env *Environment, ctx
 	case lexer.MINUS_MINUS:
 		env.Update(symbol.Value, RuntimeValue{Kind: NumberVal, Value: val - 1})
 	}
-	return current // return value before increment (postfix behaviour)
+	return current
 }
 
 func isTruthy(val RuntimeValue) bool {

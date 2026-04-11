@@ -10,8 +10,6 @@ type Statement interface{ statement() }
 type Expression interface{ expression() }
 type AstType interface{ _type() }
 
-// ── AST Expressions ───────────────────────────────────────────────────────────
-
 type NumberExpression struct{ Value float64 }
 type StringExpression struct{ Value string }
 type SymbolExpression struct{ Value string }
@@ -65,8 +63,6 @@ func (n AssignmentExpression) expression() {}
 func (n IndexExpression) expression()      {}
 func (n PostfixExpression) expression()    {}
 func (n TypeofExpression) expression()     {}
-
-// ── AST Statements ────────────────────────────────────────────────────────────
 
 type BlockStatement struct{ Body []Statement }
 type BoolExpression struct{ Value bool }
@@ -559,7 +555,17 @@ func parse_type(p *parser, bp BindingPower) AstType {
 }
 
 func parse_symbol_type(p *parser) AstType {
-	return SymbolType{Name: p.expect(lexer.IDENT).Value}
+	tok := p.expect(lexer.IDENT)
+	name := tok.Value
+	validTypes := map[string]bool{
+		 "number": true, "string": true, "bool": true,
+		 "function": true, "void": true, "null": true, "array": true,
+	}
+	if !validTypes[name] {
+		 panic(lexer.NewError(tok.Line, tok.Column,
+			  fmt.Sprintf("unknown type '%s': valid types are number, string, bool, function, void, null, array", name)))
+	}
+	return SymbolType{Name: name}
 }
 
 func parse_array_type(p *parser) AstType {
@@ -574,7 +580,7 @@ func parse_postfix_expression(p *parser, left Expression, bp BindingPower) Expre
 }
 
 func parse_function_type(p *parser) AstType {
-	p.advance() // consume 'function'
+	p.advance()
 	return SymbolType{Name: "function"}
 }
 
