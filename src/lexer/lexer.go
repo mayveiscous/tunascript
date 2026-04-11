@@ -292,10 +292,36 @@ func numberHandler(lex *lexer, regex *regexp.Regexp) {
 
 func stringHandler(lex *lexer, regex *regexp.Regexp) {
 	match := regex.FindStringIndex(lex.remainder())
-	stringLiteral := lex.remainder()[match[0]+1 : match[1]-1]
+	raw := lex.remainder()[match[0]+1 : match[1]-1]
+	// Process escape sequences
+	var buf []byte
+	i := 0
+	for i < len(raw) {
+		if raw[i] == '\\' && i+1 < len(raw) {
+			switch raw[i+1] {
+			case '"':
+				buf = append(buf, '"')
+			case '\\':
+				buf = append(buf, '\\')
+			case 'n':
+				buf = append(buf, '\n')
+			case 't':
+				buf = append(buf, '\t')
+			case 'r':
+				buf = append(buf, '\r')
+			default:
+				buf = append(buf, raw[i], raw[i+1])
+			}
+			i += 2
+		} else {
+			buf = append(buf, raw[i])
+			i++
+		}
+	}
+	stringLiteral := string(buf)
 	line, col := lex.line, lex.col
 	lex.push(NewToken(STRING, stringLiteral, line, col))
-	lex.advanceN(len(stringLiteral) + 2)
+	lex.advanceN(match[1])
 }
 
 func commentHandler(lex *lexer, regex *regexp.Regexp) {
@@ -330,7 +356,7 @@ func createLexer(source string) *lexer {
 			{regexp.MustCompile(`\s+`), skipWhitespace},
 			{regexp.MustCompile(`[a-zA-Z_][a-zA-Z0-9_]*`), symbolHandler},
 			{regexp.MustCompile(`[0-9]+(\.[0-9]+)?`), numberHandler},
-			{regexp.MustCompile(`"[^"]*"`), stringHandler},
+			{regexp.MustCompile(`"(?:[^"\\]|\\.)*"`), stringHandler},
 			{regexp.MustCompile(`><>[^\n]*`), commentHandler},
 			{regexp.MustCompile(`\(`), defaultHandler(OPEN_PAREN, "(")},
 			{regexp.MustCompile(`\)`), defaultHandler(CLOSE_PAREN, ")")},

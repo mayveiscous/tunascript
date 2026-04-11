@@ -70,7 +70,7 @@ func registerBuiltins(env *Environment) {
 			case ArrayVal:
 				return RuntimeValue{Kind: NumberVal, Value: float64(len(args[0].Value.([]RuntimeValue)))}
 			case StringVal:
-				return RuntimeValue{Kind: NumberVal, Value: float64(len(args[0].Value.(string)))}
+				return RuntimeValue{Kind: NumberVal, Value: float64(len([]rune(args[0].Value.(string))))}
 			default:
 				panic(fmt.Sprintf("len() expects a string or array, got '%s'", args[0].Kind))
 			}
@@ -397,6 +397,8 @@ func nativeToString(val RuntimeValue) string {
 			parts[i] = nativeToString(el)
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
+	case FunctionVal:
+		return "function"
 	default:
 		return "unknown"
 	}
