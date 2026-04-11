@@ -233,6 +233,7 @@ func createTokenLookups() {
 
 	type_nud_reg(lexer.IDENT, parse_symbol_type)
 	type_nud_reg(lexer.OPEN_BRACKET, parse_array_type)
+	type_nud_reg(lexer.FUNCTION, parse_function_type)
 }
 
 type parser struct {
@@ -570,6 +571,11 @@ func parse_array_type(p *parser) AstType {
 func parse_postfix_expression(p *parser, left Expression, bp BindingPower) Expression {
 	operatorToken := p.advance()
 	return PostfixExpression{Operator: operatorToken, Left: left}
+}
+
+func parse_function_type(p *parser) AstType {
+	p.advance() // consume 'function'
+	return SymbolType{Name: "function"}
 }
 
 func parse_typeof_expression(p *parser) Expression {

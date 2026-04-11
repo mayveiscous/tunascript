@@ -51,6 +51,7 @@ type FunctionValue struct {
 	Parameters []parser.FunctionParameter
 	ReturnType parser.AstType
 	Body       parser.BlockStatement
+	Env        *Environment // declaration-scope environment (for closures)
 }
 
 type BreakSignal struct{}
@@ -110,6 +111,32 @@ func (e *Environment) Get(name string) RuntimeValue {
 	panic(fmt.Sprintf("undefined variable '%s'", name))
 }
 
+// resolveTypeName maps an AstType to a ValueKind string for type checking.
+func resolveTypeName(t parser.AstType) string {
+	switch v := t.(type) {
+	case parser.SymbolType:
+		return v.Name
+	case parser.ArrayType:
+		return "array"
+	default:
+		return ""
+	}
+}
+
+func checkType(label string, val RuntimeValue, expected parser.AstType) {
+	if expected == nil {
+		return
+	}
+	want := resolveTypeName(expected)
+	if want == "" {
+		return
+	}
+	got := val.Kind.String()
+	if got != want {
+		panic(fmt.Sprintf("type mismatch for '%s': expected '%s' but got '%s'", label, want, got))
+	}
+}
+
 func Interpret(block parser.BlockStatement) RuntimeValue {
 	env := NewEnvironment(nil)
 	registerBuiltins(env)
@@ -130,6 +157,7 @@ func EvaluateStatement(stmt parser.Statement, env *Environment) RuntimeValue {
 		if s.AssignedValue != nil {
 			val = EvaluateExpression(s.AssignedValue, env)
 		}
+		checkType(s.VariableName, val, s.ExplicitType)
 		if s.IsConstant {
 			env.SetConst(s.VariableName, val)
 		} else {
@@ -213,6 +241,7 @@ func EvaluateStatement(stmt parser.Statement, env *Environment) RuntimeValue {
 				Parameters: s.Parameters,
 				ReturnType: s.ReturnType,
 				Body:       s.Body,
+				Env:        env, // capture declaration scope
 			},
 		}
 		env.Set(s.Name, fn)
@@ -238,6 +267,8 @@ func EvaluateExpression(expr parser.Expression, env *Environment) RuntimeValue {
 			return RuntimeValue{Kind: NullVal}
 		}
 		return env.Get(e.Value)
+
+
 	case parser.IndexExpression:
 		left := EvaluateExpression(e.Left, env)
 		index := EvaluateExpression(e.Index, env)
@@ -317,6 +348,24 @@ func EvaluatePrefixExpression(e parser.PrefixExpression, env *Environment) Runti
 }
 
 func EvaluateBinaryExpression(e parser.BinaryExpression, env *Environment) RuntimeValue {
+	// Short-circuit logical operators before evaluating right side
+	if e.Operator.Kind == lexer.AND {
+		left := EvaluateExpression(e.Left, env)
+		if !isTruthy(left) {
+			return RuntimeValue{Kind: BoolVal, Value: false}
+		}
+		right := EvaluateExpression(e.Right, env)
+		return RuntimeValue{Kind: BoolVal, Value: isTruthy(right)}
+	}
+	if e.Operator.Kind == lexer.OR {
+		left := EvaluateExpression(e.Left, env)
+		if isTruthy(left) {
+			return RuntimeValue{Kind: BoolVal, Value: true}
+		}
+		right := EvaluateExpression(e.Right, env)
+		return RuntimeValue{Kind: BoolVal, Value: isTruthy(right)}
+	}
+
 	left := EvaluateExpression(e.Left, env)
 	right := EvaluateExpression(e.Right, env)
 
@@ -380,10 +429,6 @@ func EvaluateBinaryExpression(e parser.BinaryExpression, env *Environment) Runti
 		l := left.Value.(bool)
 		r := right.Value.(bool)
 		switch e.Operator.Kind {
-		case lexer.AND:
-			return RuntimeValue{Kind: BoolVal, Value: l && r}
-		case lexer.OR:
-			return RuntimeValue{Kind: BoolVal, Value: l || r}
 		case lexer.EQUALS:
 			return RuntimeValue{Kind: BoolVal, Value: l == r}
 		case lexer.NOT_EQUALS:
@@ -465,7 +510,12 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment) RuntimeVa
 				f.Name, len(f.Parameters), len(e.Arguments)))
 		}
 
-		fnEnv := NewEnvironment(env)
+		// Use the declaration-scope environment as parent (lexical scoping / closures)
+		declEnv := f.Env
+		if declEnv == nil {
+			declEnv = env
+		}
+		fnEnv := NewEnvironment(declEnv)
 		for i, param := range f.Parameters {
 			fnEnv.Set(param.Name, EvaluateExpression(e.Arguments[i], env))
 		}
@@ -475,6 +525,7 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment) RuntimeVa
 			defer func() {
 				if r := recover(); r != nil {
 					if ret, ok := r.(ReturnSignal); ok {
+						checkType(f.Name+"() return", ret.Value, f.ReturnType)
 						result = ret.Value
 					} else {
 						panic(r)
