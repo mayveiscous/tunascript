@@ -1,72 +1,236 @@
 {
-  "Function": {
+  "Function (void)": {
     "prefix": "swim",
-    "body": ["swim ${1:name}(${2:params}): ${3:void}", "\t$0", "shore"],
-    "description": "Define a function"
+    "body": [
+      "swim ${1:name}(${2:params}): void",
+      "\t$0",
+      "shore"
+    ],
+    "description": "Define a void function"
   },
-  "Function with return": {
+
+  "Function with return type": {
     "prefix": "swimr",
-    "body": ["swim ${1:name}(${2:param}: ${3:number}): ${4:number}", "\tserve $0", "shore"],
-    "description": "Define a function with a typed param and return"
+    "body": [
+      "swim ${1:name}(${2:param}: ${3:number}): ${4:number}",
+      "\tserve $0",
+      "shore"
+    ],
+    "description": "Define a function with typed param and return"
   },
-  "If statement": {
-    "prefix": "if",
-    "body": ["if ${1:condition}", "\t$0", "shore"],
-    "description": "If statement"
-  },
-  "If/else": {
-    "prefix": "ife",
-    "body": ["if ${1:condition}", "\t$0", "else", "\t", "shore"],
-    "description": "If/else statement"
-  },
-  "While loop": {
-    "prefix": "while",
-    "body": ["while ${1:condition}", "\t$0", "shore"],
-    "description": "While loop"
-  },
-  "For-in loop": {
-    "prefix": "for",
-    "body": ["for ${1:item} in ${2:array}", "\t$0", "shore"],
-    "description": "For-in loop"
-  },
-  "Catch variable": {
-    "prefix": "catch",
-    "body": ["catch ${1:name} = ${2:value}"],
-    "description": "Variable declaration"
-  },
-  "Catch typed variable": {
-    "prefix": "catcht",
-    "body": ["catch ${1:name}: ${2:number} = ${3:value}"],
-    "description": "Typed variable declaration"
-  },
-  "Anchor constant": {
-    "prefix": "anchor",
-    "body": ["anchor ${1:name} = ${2:value}"],
-    "description": "Constant declaration"
-  },
-  "Object literal": {
-    "prefix": "obj",
-    "body": ["catch ${1:name}: object = {", "\t${2:key}: ${3:value}$0", "}"],
-    "description": "Object literal"
-  },
-  "Import": {
-    "prefix": "from",
-    "body": ["from \"${1:file.tuna}\" catch ${2:name}"],
-    "description": "Import from another TunaScript file"
-  },
-  "Cast export function": {
+
+  "Export function": {
     "prefix": "castswim",
-    "body": ["cast swim ${1:name}(${2:params}): ${3:void}", "\t$0", "shore"],
+    "body": [
+      "cast swim ${1:name}(${2:params}): ${3:void}",
+      "\t$0",
+      "shore"
+    ],
     "description": "Define and export a function"
   },
-  "Cast export variable": {
+
+  "If statement": {
+    "prefix": "if",
+    "body": [
+      "if ${1:condition}",
+      "\t$0",
+      "shore"
+    ],
+    "description": "If statement"
+  },
+
+  "If / else": {
+    "prefix": "ife",
+    "body": [
+      "if ${1:condition}",
+      "\t${2:}",
+      "else",
+      "\t$0",
+      "shore"
+    ],
+    "description": "If / else statement"
+  },
+
+  "Else if chain": {
+    "prefix": "elif",
+    "body": [
+      "if ${1:condition}",
+      "\t${2:}",
+      "else if ${3:condition}",
+      "\t${4:}",
+      "else",
+      "\t$0",
+      "shore"
+    ],
+    "description": "If / else if / else chain"
+  },
+
+  "While loop": {
+    "prefix": "while",
+    "body": [
+      "while ${1:condition}",
+      "\t$0",
+      "shore"
+    ],
+    "description": "While loop"
+  },
+
+  "For-in loop": {
+    "prefix": "for",
+    "body": [
+      "for ${1:item} in ${2:collection}",
+      "\t$0",
+      "shore"
+    ],
+    "description": "For-in loop over an array"
+  },
+
+  "Counted for loop": {
+    "prefix": "fori",
+    "body": [
+      "catch ${1:i}: number = 0",
+      "while ${1:i} < ${2:len}",
+      "\t$0",
+      "\t${1:i}++",
+      "shore"
+    ],
+    "description": "Classic counted loop using while + counter"
+  },
+
+  "Variable declaration": {
+    "prefix": "catch",
+    "body": [
+      "catch ${1:name} = ${2:value}"
+    ],
+    "description": "Declare a variable"
+  },
+
+  "Typed variable declaration": {
+    "prefix": "catcht",
+    "body": [
+      "catch ${1:name}: ${2:string} = ${3:value}"
+    ],
+    "description": "Declare a typed variable"
+  },
+
+  "Constant declaration": {
+    "prefix": "anchor",
+    "body": [
+      "anchor ${1:NAME} = ${2:value}"
+    ],
+    "description": "Declare a constant"
+  },
+
+  "Export variable": {
     "prefix": "castcatch",
-    "body": ["cast catch ${1:name} = ${2:value}"],
+    "body": [
+      "cast catch ${1:name} = ${2:value}"
+    ],
     "description": "Declare and export a variable"
   },
+
+  "Object literal": {
+    "prefix": "obj",
+    "body": [
+      "catch ${1:name}: object = {",
+      "\t${2:key}: ${3:value}$0",
+      "}"
+    ],
+    "description": "Declare an object literal"
+  },
+
+  "Array literal": {
+    "prefix": "arr",
+    "body": [
+      "catch ${1:name}: []${2:number} = [${3:}]"
+    ],
+    "description": "Declare a typed array"
+  },
+
+  "Import from module": {
+    "prefix": "from",
+    "body": [
+      "from \"${1:module.tuna}\" catch ${2:name}"
+    ],
+    "description": "Import from another .tuna file"
+  },
+
   "bubble print": {
     "prefix": "bubble",
-    "body": ["bubble($0)"],
+    "body": [
+      "bubble($0)"
+    ],
     "description": "Print to console"
+  },
+
+  "serve return": {
+    "prefix": "serve",
+    "body": [
+      "serve $0"
+    ],
+    "description": "Return a value from a function"
+  },
+
+  "typeof check": {
+    "prefix": "typeof",
+    "body": [
+      "typeof ${1:value}"
+    ],
+    "description": "Get the type of a value as a string"
+  },
+
+  "math.randInt": {
+    "prefix": "randint",
+    "body": [
+      "math.randInt(${1:0}, ${2:100})"
+    ],
+    "description": "Random integer between min and max (inclusive)"
+  },
+
+  "string.split": {
+    "prefix": "split",
+    "body": [
+      "string.split(${1:str}, \"${2: }\")"
+    ],
+    "description": "Split a string into an array"
+  },
+
+  "array.push": {
+    "prefix": "push",
+    "body": [
+      "array.push(${1:arr}, ${2:value})"
+    ],
+    "description": "Push a value onto an array (mutates in place)"
+  },
+
+  "array.pop": {
+    "prefix": "pop",
+    "body": [
+      "array.pop(${1:arr})"
+    ],
+    "description": "Pop the last element from an array (mutates in place)"
+  },
+
+  "Null check": {
+    "prefix": "ifnil",
+    "body": [
+      "if ${1:value} == nil",
+      "\t$0",
+      "shore"
+    ],
+    "description": "Check if a value is nil"
+  },
+
+  "Recursive function": {
+    "prefix": "swimrec",
+    "body": [
+      "swim ${1:name}(${2:n}: ${3:number}): ${4:number}",
+      "\tif ${5:n <= 0}",
+      "\t\tserve ${6:0}",
+      "\tshore",
+      "\tserve $0",
+      "shore"
+    ],
+    "description": "Recursive function skeleton with base case"
   }
 }

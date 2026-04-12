@@ -9,6 +9,16 @@ import (
 	"strings"
 )
 
+// NativeFunctionWithEnv is a native function that needs direct environment
+// access so it can mutate a named variable in place (e.g. array.push).
+// The raw parser.Expression arguments are passed before evaluation so the
+// function can determine whether the first argument is a named variable and,
+// if so, write the result back to the environment.
+type NativeFunctionWithEnv struct {
+	Name string
+	Call func(args []RuntimeValue, rawArgs []interface{}, env *Environment) RuntimeValue
+}
+
 func registerBuiltins(env *Environment) {
 	// ── globals ──────────────────────────────────────────────────────────────
 
@@ -212,28 +222,68 @@ func registerBuiltins(env *Environment) {
 	env.Set("string", RuntimeValue{Kind: ObjectVal, Value: stringNS})
 
 	// ── array namespace ──────────────────────────────────────────────────────
+	//
+	// push, pop, reverse, and sort are MutatingNativeFunction values.
+	// EvaluateCallExpression detects this variant and writes the result back
+	// to the named variable in the environment, giving true in-place mutation.
+	// All four still return the mutated array so they can be used in expressions.
 
 	arrayNS := map[string]RuntimeValue{
-		"push": {Kind: FunctionVal, Value: NativeFunction{Name: "push", Call: func(args []RuntimeValue) RuntimeValue {
-			assertArgCount("array.push", args, 2)
-			assertKind("array.push", args[0], ArrayVal)
-			existing := args[0].Value.([]RuntimeValue)
-			newArr := make([]RuntimeValue, len(existing)+1)
-			copy(newArr, existing)
-			newArr[len(existing)] = args[1]
-			return RuntimeValue{Kind: ArrayVal, Value: newArr}
-		}}},
-		"pop": {Kind: FunctionVal, Value: NativeFunction{Name: "pop", Call: func(args []RuntimeValue) RuntimeValue {
-			assertArgCount("array.pop", args, 1)
-			assertKind("array.pop", args[0], ArrayVal)
-			existing := args[0].Value.([]RuntimeValue)
-			if len(existing) == 0 {
-				panic("array.pop() called on empty array")
-			}
-			newArr := make([]RuntimeValue, len(existing)-1)
-			copy(newArr, existing[:len(existing)-1])
-			return RuntimeValue{Kind: ArrayVal, Value: newArr}
-		}}},
+		// --- mutating ---
+		"push": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "push",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("array.push", args, 2)
+				assertKind("array.push", args[0], ArrayVal)
+				existing := args[0].Value.([]RuntimeValue)
+				newArr := append(existing, args[1])
+				return RuntimeValue{Kind: ArrayVal, Value: newArr}
+			},
+		}},
+		"pop": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "pop",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("array.pop", args, 1)
+				assertKind("array.pop", args[0], ArrayVal)
+				existing := args[0].Value.([]RuntimeValue)
+				if len(existing) == 0 {
+					panic("array.pop() called on empty array")
+				}
+				return RuntimeValue{Kind: ArrayVal, Value: existing[:len(existing)-1]}
+			},
+		}},
+		"sort": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "sort",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("array.sort", args, 1)
+				assertKind("array.sort", args[0], ArrayVal)
+				arr := args[0].Value.([]RuntimeValue)
+				newArr := make([]RuntimeValue, len(arr))
+				copy(newArr, arr)
+				sort.Slice(newArr, func(i, j int) bool {
+					a, b := newArr[i], newArr[j]
+					if a.Kind == NumberVal && b.Kind == NumberVal {
+						return a.Value.(float64) < b.Value.(float64)
+					}
+					if a.Kind == StringVal && b.Kind == StringVal {
+						return a.Value.(string) < b.Value.(string)
+					}
+					panic("array.sort() requires an array of all numbers or all strings")
+				})
+				return RuntimeValue{Kind: ArrayVal, Value: newArr}
+			},
+		}},
+		"reverse": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "reverse",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("array.reverse", args, 1)
+				assertKind("array.reverse", args[0], ArrayVal)
+				arr := args[0].Value.([]RuntimeValue)
+				newArr := make([]RuntimeValue, len(arr))
+				for i, v := range arr {
+					newArr[len(arr)-1-i] = v
+				}
+				return RuntimeValue{Kind: ArrayVal, Value: newArr}
+			},
+		}},
+
+		// --- non-mutating (return new values, don't write back) ---
 		"first": {Kind: FunctionVal, Value: NativeFunction{Name: "first", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("array.first", args, 1)
 			assertKind("array.first", args[0], ArrayVal)
@@ -263,25 +313,9 @@ func registerBuiltins(env *Environment) {
 			if start < 0 || end > len(arr) || start > end {
 				panic(fmt.Sprintf("array.slice() index out of bounds: [%d:%d] on array of length %d", start, end, len(arr)))
 			}
-			return RuntimeValue{Kind: ArrayVal, Value: arr[start:end]}
-		}}},
-		"sort": {Kind: FunctionVal, Value: NativeFunction{Name: "sort", Call: func(args []RuntimeValue) RuntimeValue {
-			assertArgCount("array.sort", args, 1)
-			assertKind("array.sort", args[0], ArrayVal)
-			arr := args[0].Value.([]RuntimeValue)
-			newArr := make([]RuntimeValue, len(arr))
-			copy(newArr, arr)
-			sort.Slice(newArr, func(i, j int) bool {
-				a, b := newArr[i], newArr[j]
-				if a.Kind == NumberVal && b.Kind == NumberVal {
-					return a.Value.(float64) < b.Value.(float64)
-				}
-				if a.Kind == StringVal && b.Kind == StringVal {
-					return a.Value.(string) < b.Value.(string)
-				}
-				panic("array.sort() requires an array of all numbers or all strings")
-			})
-			return RuntimeValue{Kind: ArrayVal, Value: newArr}
+			result := make([]RuntimeValue, end-start)
+			copy(result, arr[start:end])
+			return RuntimeValue{Kind: ArrayVal, Value: result}
 		}}},
 		"contains": {Kind: FunctionVal, Value: NativeFunction{Name: "contains", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("array.contains", args, 2)
@@ -304,16 +338,6 @@ func registerBuiltins(env *Environment) {
 				parts[i] = nativeToString(e)
 			}
 			return RuntimeValue{Kind: StringVal, Value: strings.Join(parts, args[1].Value.(string))}
-		}}},
-		"reverse": {Kind: FunctionVal, Value: NativeFunction{Name: "reverse", Call: func(args []RuntimeValue) RuntimeValue {
-			assertArgCount("array.reverse", args, 1)
-			assertKind("array.reverse", args[0], ArrayVal)
-			arr := args[0].Value.([]RuntimeValue)
-			newArr := make([]RuntimeValue, len(arr))
-			for i, v := range arr {
-				newArr[len(arr)-1-i] = v
-			}
-			return RuntimeValue{Kind: ArrayVal, Value: newArr}
 		}}},
 	}
 	env.Set("array", RuntimeValue{Kind: ObjectVal, Value: arrayNS})

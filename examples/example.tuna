@@ -1,5 +1,0 @@
-cast swim square(n: number): number
-   serve n * n
-shore
-
-cast catch fish: []string = ["tuna", "salmon", "mackeral"]

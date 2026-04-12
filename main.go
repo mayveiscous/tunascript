@@ -71,7 +71,6 @@ Usage:
 
 /*
 
-// add into command switch once implemented zzzz 
 case "serve":
 	runREPL(commandArgs)
 case "lex":

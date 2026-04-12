@@ -4,21 +4,26 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
-    { "include": "#cast-import" },
-    { "include": "#keywords" },
-    { "include": "#types" },
-    { "include": "#builtins" },
+    { "include": "#import-export" },
     { "include": "#function-def" },
+    { "include": "#control-keywords" },
+    { "include": "#declaration-keywords" },
+    { "include": "#shore" },
+    { "include": "#builtins-ns" },
+    { "include": "#builtins-global" },
     { "include": "#function-call" },
+    { "include": "#types-annotation" },
     { "include": "#booleans" },
     { "include": "#null" },
     { "include": "#numbers" },
-    { "include": "#operators" }
+    { "include": "#operators" },
+    { "include": "#punctuation" }
   ],
   "repository": {
+
     "comments": {
       "match": "><>.*$",
-      "name": "comment.line.tuna"
+      "name": "comment.line.double-slash.tuna"
     },
 
     "strings": {
@@ -29,72 +34,95 @@
         {
           "match": "\\\\[\"\\\\ntr]",
           "name": "constant.character.escape.tuna"
-        }
-      ]
-    },
-
-    "cast-import": {
-      "patterns": [
-        {
-          "comment": "from \"path\" catch ...",
-          "match": "\\b(from)\\s+(\"[^\"]*\")\\s+(catch)\\b",
-          "captures": {
-            "1": { "name": "keyword.control.import.tuna" },
-            "2": { "name": "string.quoted.double.tuna" },
-            "3": { "name": "keyword.control.import.tuna" }
-          }
         },
         {
-          "comment": "cast keyword before a declaration",
-          "match": "\\b(cast)\\b",
-          "name": "keyword.control.export.tuna"
-        }
-      ]
-    },
-
-    "keywords": {
-      "match": "\\b(if|else|while|for|in|break|continue|serve|shore|catch|anchor|new|typeof|and|or)\\b",
-      "name": "keyword.control.tuna"
-    },
-
-    "types": {
-      "match": "(?<=:)\\s*(number|string|bool|array|object|function|void|null|\\[\\]number|\\[\\]string|\\[\\]bool)",
-      "captures": {
-        "1": { "name": "support.type.tuna" }
-      }
-    },
-
-    "builtins": {
-      "patterns": [
-        {
-          "comment": "namespace objects: math, string, array",
-          "match": "\\b(math|string|array)\\.(floor|ceil|round|abs|min|max|pow|sqrt|rand|randInt|pi|e|upper|lower|trim|split|contains|replace|startsWith|endsWith|repeat|push|pop|first|last|slice|sort|join|reverse)\\b",
-          "captures": {
-            "1": { "name": "support.class.tuna" },
-            "2": { "name": "support.function.tuna" }
-          }
-        },
-        {
-          "comment": "global builtin functions",
-          "match": "\\b(bubble|typeOf|toNumber|toString|len)(?=\\s*\\()",
-          "name": "support.function.builtin.tuna"
+          "match": "\\\\.",
+          "name": "invalid.illegal.unknown-escape.tuna"
         }
       ]
     },
 
     "function-def": {
-      "comment": "swim functionName — highlight the name after swim",
-      "match": "\\b(swim)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+      "comment": "swim functionName — name gets entity.name.function",
+      "match": "\\b(swim)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
       "captures": {
-        "1": { "name": "keyword.control.tuna" },
+        "1": { "name": "storage.type.function.tuna" },
         "2": { "name": "entity.name.function.tuna" }
       }
     },
 
+    "control-keywords": {
+      "match": "\\b(if|else|while|for|from|in|break|continue|serve|as|new|typeof|and|or)\\b",
+      "name": "keyword.control.tuna"
+    },
+
+    "declaration-keywords": {
+      "match": "\\b(catch|anchor)\\b",
+      "name": "keyword.control.tuna"
+    },
+
+    "shore": {
+      "comment": "shore closes a block — treat like punctuation/keyword",
+      "match": "\\bshore\\b",
+      "name": "keyword.control.shore.tuna"
+    },
+
+    "builtins-ns": {
+      "comment": "Namespace method calls: math.sqrt, string.upper, array.push …",
+      "patterns": [
+        {
+          "match": "\\b(math)\\.(floor|ceil|round|abs|min|max|pow|sqrt|rand|randInt|pi|e)\\b",
+          "captures": {
+            "1": { "name": "support.class.builtin.tuna" },
+            "2": { "name": "support.function.builtin.tuna" }
+          }
+        },
+        {
+          "match": "\\b(string)\\.(upper|lower|trim|split|contains|replace|startsWith|endsWith|repeat)\\b",
+          "captures": {
+            "1": { "name": "support.class.builtin.tuna" },
+            "2": { "name": "support.function.builtin.tuna" }
+          }
+        },
+        {
+          "match": "\\b(array)\\.(push|pop|first|last|slice|sort|join|reverse|contains)\\b",
+          "captures": {
+            "1": { "name": "support.class.builtin.tuna" },
+            "2": { "name": "support.function.builtin.tuna" }
+          }
+        }
+      ]
+    },
+
+    "builtins-global": {
+      "comment": "Top-level builtin functions",
+      "match": "\\b(bubble|typeOf|toNumber|toString|len)(?=\\s*\\()",
+      "name": "support.function.builtin.tuna"
+    },
+
     "function-call": {
-      "comment": "anyName( — highlight user-defined function calls",
+      "comment": "User-defined function calls — lower priority than builtins",
       "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\()",
       "name": "entity.name.function.tuna"
+    },
+
+    "types-annotation": {
+      "comment": "Type names after a colon in declarations and parameters",
+      "patterns": [
+        {
+          "comment": "Typed array: []number, []string, []bool",
+          "match": "(\\[\\])(number|string|bool|object|function|null)",
+          "captures": {
+            "1": { "name": "punctuation.definition.type.tuna" },
+            "2": { "name": "support.type.tuna" }
+          }
+        },
+        {
+          "comment": "Scalar types after colon",
+          "match": "(?<=:\\s{0,10})(number|string|bool|array|object|function|void|null)\\b",
+          "name": "support.type.tuna"
+        }
+      ]
     },
 
     "booleans": {
@@ -113,8 +141,61 @@
     },
 
     "operators": {
-      "match": "(==|!=|<=|>=|\\+\\+|--|\\+=|-=|\\*=|/=|[+\\-*/%=<>!])",
-      "name": "keyword.operator.tuna"
+      "patterns": [
+        {
+          "match": "(==|!=|<=|>=)",
+          "name": "keyword.operator.comparison.tuna"
+        },
+        {
+          "match": "(\\+=|-=|\\*=|/=)",
+          "name": "keyword.operator.assignment.compound.tuna"
+        },
+        {
+          "match": "(\\+\\+|--)",
+          "name": "keyword.operator.increment.tuna"
+        },
+        {
+          "match": "=(?!=)",
+          "name": "keyword.operator.assignment.tuna"
+        },
+        {
+          "match": "[+\\-*/%]",
+          "name": "keyword.operator.arithmetic.tuna"
+        },
+        {
+          "match": "[<>!]",
+          "name": "keyword.operator.comparison.tuna"
+        },
+        {
+          "match": "\\?",
+          "name": "keyword.operator.ternary.tuna"
+        }
+      ]
+    },
+
+    "punctuation": {
+      "patterns": [
+        {
+          "match": "[()\\[\\]{}]",
+          "name": "punctuation.brackets.tuna"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.comma.tuna"
+        },
+        {
+          "match": ";",
+          "name": "punctuation.terminator.semicolon.tuna"
+        },
+        {
+          "match": ":",
+          "name": "punctuation.separator.colon.tuna"
+        },
+        {
+          "match": "\\.",
+          "name": "punctuation.accessor.dot.tuna"
+        }
+      ]
     }
   }
 }

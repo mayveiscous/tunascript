@@ -67,6 +67,16 @@ type NativeFunction struct {
 	Call func(args []RuntimeValue) RuntimeValue
 }
 
+// MutatingNativeFunction is like NativeFunction but signals to
+// EvaluateCallExpression that the result should be written back to the
+// first argument's variable in the environment (if that argument is a
+// named variable). Used for array.push, array.pop, array.sort, array.reverse
+// so they behave as true in-place mutations.
+type MutatingNativeFunction struct {
+	Name string
+	Call func(args []RuntimeValue) RuntimeValue
+}
+
 type Environment struct {
 	variables     map[string]RuntimeValue
 	constants     map[string]bool
@@ -732,6 +742,26 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execC
 			args = append(args, EvaluateExpression(arg, env, ctx))
 		}
 		return f.Call(args)
+
+	case MutatingNativeFunction:
+		// Evaluate all arguments normally.
+		args := []RuntimeValue{}
+		for _, arg := range e.Arguments {
+			args = append(args, EvaluateExpression(arg, env, ctx))
+		}
+		result := f.Call(args)
+		// Write the result back to the first argument's variable so the
+		// mutation is visible to the caller. Only works when the first
+		// argument is a plain identifier.
+		if len(e.Arguments) > 0 {
+			if sym, ok := e.Arguments[0].(parser.SymbolExpression); ok {
+				func() {
+					defer func() { recover() }()
+					env.Update(sym.Value, result)
+				}()
+			}
+		}
+		return result
 
 	case FunctionValue:
 		if len(e.Arguments) != len(f.Parameters) {

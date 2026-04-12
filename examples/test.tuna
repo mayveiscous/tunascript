@@ -1,3 +1,8 @@
-from "examples/example.tuna" catch square, fish
-bubble(square(5))
-bubble(fish[0])
+from "examples/module.tuna" catch fish, add as a
+
+bubble(a(4, 7))
+bubble(fish)
+
+if fish == nil
+   bubble("theres no fish! :(")
+shore

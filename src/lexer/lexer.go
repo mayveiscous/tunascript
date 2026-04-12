@@ -66,6 +66,7 @@ const (
 	WHILE
 	FOR
 	FROM
+	AS
 	NEW
 	TYPEOF
 	IN
@@ -102,6 +103,7 @@ var reserved_lu = map[string]TokenKind{
 	"break": BREAK,
 	"continue": CONTINUE,
 	"cast": CAST,
+	"as": AS,
 }
 
 type Token struct {
