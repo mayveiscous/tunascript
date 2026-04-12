@@ -1,7 +1,5 @@
-bubble(math.sqrt(144))
-bubble(string.upper("tuna"))
-bubble(array.first([1, 2, 3]))
+cast swim square(n: number): number
+   serve n * n
+shore
 
-catch pi = math.pi
-catch msg = string.repeat("~", 10)
-bubble(pi, msg)
+cast catch fish: []string = ["tuna", "salmon", "mackeral"]

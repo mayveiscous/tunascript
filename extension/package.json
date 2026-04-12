@@ -1,0 +1,38 @@
+{
+   "name": "tunascript",
+   "displayName": "TunaScript",
+   "description": "Syntax highlighting for TunaScript",
+   "version": "0.0.2",
+   "engines": { "vscode": "^1.80.0" },
+   "categories": ["Programming Languages"],
+   "publisher": "mayveiscous",
+   "repository": {
+     "type": "git",
+     "url": "https://github.com/mayveiscous/tunascript"
+   },
+   "license": "MIT",
+   "contributes": {
+     "languages": [
+       {
+         "id": "tunascript",
+         "aliases": ["TunaScript", "tuna"],
+         "extensions": [".tuna"],
+         "configuration": "./language-configuration.json"
+       }
+     ],
+     "grammars": [
+       {
+         "language": "tunascript",
+         "scopeName": "source.tuna",
+         "path": "./syntaxes/tuna.tmLanguage.json"
+       }
+     ],
+
+     "snippets": [
+      {
+        "language": "tunascript",
+        "path": "./snippets/tunascript.json"
+      }
+    ]
+   }
+ }

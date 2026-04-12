@@ -1,0 +1,72 @@
+{
+  "Function": {
+    "prefix": "swim",
+    "body": ["swim ${1:name}(${2:params}): ${3:void}", "\t$0", "shore"],
+    "description": "Define a function"
+  },
+  "Function with return": {
+    "prefix": "swimr",
+    "body": ["swim ${1:name}(${2:param}: ${3:number}): ${4:number}", "\tserve $0", "shore"],
+    "description": "Define a function with a typed param and return"
+  },
+  "If statement": {
+    "prefix": "if",
+    "body": ["if ${1:condition}", "\t$0", "shore"],
+    "description": "If statement"
+  },
+  "If/else": {
+    "prefix": "ife",
+    "body": ["if ${1:condition}", "\t$0", "else", "\t", "shore"],
+    "description": "If/else statement"
+  },
+  "While loop": {
+    "prefix": "while",
+    "body": ["while ${1:condition}", "\t$0", "shore"],
+    "description": "While loop"
+  },
+  "For-in loop": {
+    "prefix": "for",
+    "body": ["for ${1:item} in ${2:array}", "\t$0", "shore"],
+    "description": "For-in loop"
+  },
+  "Catch variable": {
+    "prefix": "catch",
+    "body": ["catch ${1:name} = ${2:value}"],
+    "description": "Variable declaration"
+  },
+  "Catch typed variable": {
+    "prefix": "catcht",
+    "body": ["catch ${1:name}: ${2:number} = ${3:value}"],
+    "description": "Typed variable declaration"
+  },
+  "Anchor constant": {
+    "prefix": "anchor",
+    "body": ["anchor ${1:name} = ${2:value}"],
+    "description": "Constant declaration"
+  },
+  "Object literal": {
+    "prefix": "obj",
+    "body": ["catch ${1:name}: object = {", "\t${2:key}: ${3:value}$0", "}"],
+    "description": "Object literal"
+  },
+  "Import": {
+    "prefix": "from",
+    "body": ["from \"${1:file.tuna}\" catch ${2:name}"],
+    "description": "Import from another TunaScript file"
+  },
+  "Cast export function": {
+    "prefix": "castswim",
+    "body": ["cast swim ${1:name}(${2:params}): ${3:void}", "\t$0", "shore"],
+    "description": "Define and export a function"
+  },
+  "Cast export variable": {
+    "prefix": "castcatch",
+    "body": ["cast catch ${1:name} = ${2:value}"],
+    "description": "Declare and export a variable"
+  },
+  "bubble print": {
+    "prefix": "bubble",
+    "body": ["bubble($0)"],
+    "description": "Print to console"
+  }
+}

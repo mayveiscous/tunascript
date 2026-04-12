@@ -3,6 +3,8 @@ package interpreter
 import (
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"test-go/src/lexer"
 	"test-go/src/parser"
 )
@@ -197,17 +199,25 @@ func checkType(label string, val RuntimeValue, expected parser.AstType) {
 type execContext struct {
 	inLoop     bool
 	inFunction bool
+	filePath   string // absolute path of the currently-executing file
 }
 
-func Interpret(block parser.BlockStatement) RuntimeValue {
+// moduleCache maps absolute file path → the set of exported names from that module.
+// Populated the first time a file is imported; subsequent imports reuse it.
+var moduleCache = map[string]map[string]RuntimeValue{}
+
+func Interpret(block parser.BlockStatement, filePath string) RuntimeValue {
 	env := NewEnvironment(nil)
 	registerBuiltins(env)
 	builtinNames = map[string]bool{}
 	for k := range env.variables {
 		builtinNames[k] = true
 	}
+	// Reset module cache for each fresh top-level execution.
+	moduleCache = map[string]map[string]RuntimeValue{}
+	absPath, _ := filepath.Abs(filePath)
 	var result RuntimeValue
-	ctx := execContext{}
+	ctx := execContext{filePath: absPath}
 	for _, stmt := range block.Body {
 		result = EvaluateStatement(stmt, env, ctx)
 	}
@@ -266,7 +276,7 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 	case parser.WhileStatement:
 		result := RuntimeValue{Kind: NullVal}
 		shouldBreak := false
-		loopCtx := execContext{inLoop: true, inFunction: ctx.inFunction}
+		loopCtx := execContext{inLoop: true, inFunction: ctx.inFunction, filePath: ctx.filePath}
 		for !shouldBreak {
 			if !isTruthy(EvaluateExpression(s.Condition, env, ctx)) {
 				break
@@ -294,7 +304,7 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 		}
 		result := RuntimeValue{Kind: NullVal}
 		shouldBreak := false
-		loopCtx := execContext{inLoop: true, inFunction: ctx.inFunction}
+		loopCtx := execContext{inLoop: true, inFunction: ctx.inFunction, filePath: ctx.filePath}
 		for _, element := range iterable.Value.([]RuntimeValue) {
 			if shouldBreak {
 				break
@@ -335,6 +345,23 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 		return fn
 	case parser.BlockStatement:
 		return EvaluateBlock(s, NewEnvironment(env), ctx)
+
+	case parser.CastStatement:
+		// Execute the inner declaration normally — the export is recorded by
+		// executeModule, which wraps the whole file run.
+		return EvaluateStatement(s.Inner, env, ctx)
+
+	case parser.ImportStatement:
+		exports := loadModule(s.Path, ctx)
+		for _, item := range s.Items {
+			val, ok := exports[item.Name]
+			if !ok {
+				panic(fmt.Sprintf("module '%s' does not export '%s'", s.Path, item.Name))
+			}
+			env.Set(item.Alias, val)
+		}
+		return RuntimeValue{Kind: NullVal}
+
 	default:
 		panic(fmt.Sprintf("unknown statement type: %T", stmt))
 	}
@@ -346,6 +373,57 @@ func EvaluateBlock(block parser.BlockStatement, env *Environment, ctx execContex
 		result = EvaluateStatement(stmt, env, ctx)
 	}
 	return result
+}
+
+// loadModule resolves a module path, executes it if not cached, and returns
+// its exported names.
+func loadModule(importPath string, ctx execContext) map[string]RuntimeValue {
+	// Resolve relative to the importing file's directory.
+	base := filepath.Dir(ctx.filePath)
+	absPath, err := filepath.Abs(filepath.Join(base, importPath))
+	if err != nil {
+		panic(fmt.Sprintf("cannot resolve import path '%s': %s", importPath, err))
+	}
+
+	if cached, ok := moduleCache[absPath]; ok {
+		return cached
+	}
+
+	src, err := os.ReadFile(absPath)
+	if err != nil {
+		panic(fmt.Sprintf("cannot read module '%s': %s", absPath, err))
+	}
+
+	tokens := lexer.Lex(string(src))
+	block := parser.Parse(tokens)
+	exports := executeModule(block, absPath)
+	moduleCache[absPath] = exports
+	return exports
+}
+
+// executeModule runs a file in an isolated environment and collects all names
+// declared with `cast` as exports.
+func executeModule(block parser.BlockStatement, absPath string) map[string]RuntimeValue {
+	env := NewEnvironment(nil)
+	registerBuiltins(env)
+	exports := map[string]RuntimeValue{}
+	ctx := execContext{filePath: absPath}
+
+	for _, stmt := range block.Body {
+		if cast, ok := stmt.(parser.CastStatement); ok {
+			EvaluateStatement(cast, env, ctx)
+			// After evaluating, pull the just-declared name into exports.
+			switch inner := cast.Inner.(type) {
+			case parser.FunctionDecStatement:
+				exports[inner.Name] = env.Get(inner.Name)
+			case parser.VariableDecStatement:
+				exports[inner.VariableName] = env.Get(inner.VariableName)
+			}
+		} else {
+			EvaluateStatement(stmt, env, ctx)
+		}
+	}
+	return exports
 }
 
 func tunaError(msg string) string {
@@ -675,7 +753,7 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execC
 		}
 
 		result := RuntimeValue{Kind: NullVal}
-		fnCtx := execContext{inLoop: false, inFunction: true}
+		fnCtx := execContext{inLoop: false, inFunction: true, filePath: ctx.filePath}
 		func() {
 			defer func() {
 				if r := recover(); r != nil {

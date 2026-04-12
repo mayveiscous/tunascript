@@ -1,1 +1,3 @@
-bubble("Hello world!")
+from "examples/example.tuna" catch square, fish
+bubble(square(5))
+bubble(fish[0])

@@ -75,6 +75,7 @@ const (
 	SWIM
 	BREAK
 	CONTINUE
+	CAST
 )
 
 var reserved_lu = map[string]TokenKind{
@@ -100,6 +101,7 @@ var reserved_lu = map[string]TokenKind{
 	"nil": NULL,
 	"break": BREAK,
 	"continue": CONTINUE,
+	"cast": CAST,
 }
 
 type Token struct {
@@ -224,6 +226,8 @@ func TokenKindString(kind TokenKind) string {
 		return "typeof"
 	case IN:
 		return "in"
+	case CAST:
+		return "cast"
 	default:
 		return "unknown"
 	}
