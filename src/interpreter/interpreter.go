@@ -641,7 +641,7 @@ func EvaluateAssignmentExpression(e parser.AssignmentExpression, env *Environmen
 		return rhs
 	}
 
-	// arr[i] = val
+
 	if idx, ok := e.Assigne.(parser.IndexExpression); ok {
 		arrVal := EvaluateExpression(idx.Left, env, ctx)
 		if arrVal.Kind != ArrayVal {

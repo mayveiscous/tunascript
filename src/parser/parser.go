@@ -122,21 +122,18 @@ type ForInStatement struct {
 type BreakStatement struct{}
 type ContinueStatement struct{}
 
-// ImportItem is one name (and optional alias) in a from/catch import.
 type ImportItem struct {
-	Name  string // original exported name
-	Alias string // local binding name (same as Name if no alias given)
+	Name  string
+	Alias string
 }
 
-// ImportStatement represents: from "path.tuna" catch foo, bar as b
 type ImportStatement struct {
 	Path  string
 	Items []ImportItem
 }
 
-// CastStatement marks a declaration as exported from this module.
 type CastStatement struct {
-	Inner Statement // the VariableDecStatement or FunctionDecStatement being exported
+	Inner Statement
 }
 
 func (n BreakStatement) statement()    {}
@@ -628,7 +625,7 @@ func parse_typeof_expression(p *parser) Expression {
 }
 
 func parse_object_literal(p *parser) Expression {
-	p.advance() // consume '{'
+	p.advance()
 	properties := []ObjectProperty{}
 	for p.hasTokens() && p.currentTokenKind() != lexer.CLOSE_CURLY {
 		key := p.expectError(lexer.IDENT, p.parseError("expected property name in object literal")).Value
@@ -644,14 +641,13 @@ func parse_object_literal(p *parser) Expression {
 }
 
 func parse_member_expression(p *parser, left Expression, bp BindingPower) Expression {
-	p.advance() // consume '.'
+	p.advance()
 	prop := p.expectError(lexer.IDENT, p.parseError("expected property name after '.'")).Value
 	return MemberExpression{Object: left, Property: prop}
 }
 
-// from "path.tuna" catch foo, bar as baz
 func parse_import_statement(p *parser) Statement {
-	p.advance() // consume 'from'
+	p.advance()
 	if p.currentTokenKind() != lexer.STRING {
 		panic(p.parseError("expected a file path string after 'from'"))
 	}
@@ -664,7 +660,7 @@ func parse_import_statement(p *parser) Statement {
 		name := p.expectError(lexer.IDENT, p.parseError("expected export name")).Value
 		alias := name
 		if p.currentTokenKind() == lexer.IDENT && p.currentToken().Value == "as" {
-			p.advance() // consume 'as'
+			p.advance()
 			alias = p.expectError(lexer.IDENT, p.parseError("expected alias name after 'as'")).Value
 		}
 		items = append(items, ImportItem{Name: name, Alias: alias})
@@ -677,9 +673,8 @@ func parse_import_statement(p *parser) Statement {
 	return ImportStatement{Path: path, Items: items}
 }
 
-// cast swim foo(...) or cast catch x = ...
 func parse_cast_statement(p *parser) Statement {
-	p.advance() // consume 'cast'
+	p.advance()
 	tok := p.currentToken()
 	var inner Statement
 	switch tok.Kind {
