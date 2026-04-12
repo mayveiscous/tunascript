@@ -52,7 +52,7 @@ func main() {
 	commandArgs := args[1:]
 
 	switch command {
-	case "swim":
+	case "run":
 		runFile(commandArgs)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
@@ -64,7 +64,7 @@ func main() {
 func printUsage() {
 	fmt.Println(`TunaScript CLI
 Usage:
-  tunascript swim <file.tuna>   Run a script
+  tunascript run <file.tuna>   Run a script
   tunascript lex <file.tuna>    Print tokens (not implemented)
   tunascript serve              Start REPL (not implemented)`)
 }
