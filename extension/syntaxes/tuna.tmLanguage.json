@@ -42,17 +42,8 @@
       ]
     },
 
-    "function-def": {
-      "comment": "swim functionName — name gets entity.name.function",
-      "match": "\\b(swim)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
-      "captures": {
-        "1": { "name": "storage.type.function.tuna" },
-        "2": { "name": "entity.name.function.tuna" }
-      }
-    },
-
     "control-keywords": {
-      "match": "\\b(if|else|while|for|from|in|break|continue|serve|as|new|typeof|and|or)\\b",
+      "match": "\\b(if|swim|cast|else|while|for|from|in|break|continue|serve|as|new|typeof|and|or)\\b",
       "name": "keyword.control.tuna"
     },
 

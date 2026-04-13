@@ -659,7 +659,7 @@ func parse_import_statement(p *parser) Statement {
 	for {
 		name := p.expectError(lexer.IDENT, p.parseError("expected export name")).Value
 		alias := name
-		if p.currentTokenKind() == lexer.IDENT && p.currentToken().Value == "as" {
+		if p.currentTokenKind() == lexer.AS {
 			p.advance()
 			alias = p.expectError(lexer.IDENT, p.parseError("expected alias name after 'as'")).Value
 		}

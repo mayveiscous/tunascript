@@ -9,11 +9,6 @@ import (
 	"strings"
 )
 
-// NativeFunctionWithEnv is a native function that needs direct environment
-// access so it can mutate a named variable in place (e.g. array.push).
-// The raw parser.Expression arguments are passed before evaluation so the
-// function can determine whether the first argument is a named variable and,
-// if so, write the result back to the environment.
 type NativeFunctionWithEnv struct {
 	Name string
 	Call func(args []RuntimeValue, rawArgs []interface{}, env *Environment) RuntimeValue
@@ -222,14 +217,7 @@ func registerBuiltins(env *Environment) {
 	env.Set("string", RuntimeValue{Kind: ObjectVal, Value: stringNS})
 
 	// ── array namespace ──────────────────────────────────────────────────────
-	//
-	// push, pop, reverse, and sort are MutatingNativeFunction values.
-	// EvaluateCallExpression detects this variant and writes the result back
-	// to the named variable in the environment, giving true in-place mutation.
-	// All four still return the mutated array so they can be used in expressions.
-
 	arrayNS := map[string]RuntimeValue{
-		// --- mutating ---
 		"push": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "push",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("array.push", args, 2)
@@ -283,7 +271,6 @@ func registerBuiltins(env *Environment) {
 			},
 		}},
 
-		// --- non-mutating (return new values, don't write back) ---
 		"first": {Kind: FunctionVal, Value: NativeFunction{Name: "first", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("array.first", args, 1)
 			assertKind("array.first", args[0], ArrayVal)
@@ -302,21 +289,22 @@ func registerBuiltins(env *Environment) {
 			}
 			return arr[len(arr)-1]
 		}}},
-		"slice": {Kind: FunctionVal, Value: NativeFunction{Name: "slice", Call: func(args []RuntimeValue) RuntimeValue {
-			assertArgCount("array.slice", args, 3)
-			assertKind("array.slice", args[0], ArrayVal)
-			assertKind("array.slice", args[1], NumberVal)
-			assertKind("array.slice", args[2], NumberVal)
-			arr := args[0].Value.([]RuntimeValue)
-			start := int(args[1].Value.(float64))
-			end := int(args[2].Value.(float64))
-			if start < 0 || end > len(arr) || start > end {
-				panic(fmt.Sprintf("array.slice() index out of bounds: [%d:%d] on array of length %d", start, end, len(arr)))
-			}
-			result := make([]RuntimeValue, end-start)
-			copy(result, arr[start:end])
-			return RuntimeValue{Kind: ArrayVal, Value: result}
-		}}},
+		"slice": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "slice",
+		Call: func(args []RuntimeValue) RuntimeValue {
+			 assertArgCount("array.slice", args, 3)
+			 assertKind("array.slice", args[0], ArrayVal)
+			 assertKind("array.slice", args[1], NumberVal)
+			 assertKind("array.slice", args[2], NumberVal)
+			 arr := args[0].Value.([]RuntimeValue)
+			 start := int(args[1].Value.(float64))
+			 end := int(args[2].Value.(float64))
+			 if start < 0 || end > len(arr) || start > end {
+				  panic(fmt.Sprintf("array.slice() index out of bounds: [%d:%d] on array of length %d", start, end, len(arr)))
+			 }
+			 // Mutate the array in place to the sliced range
+			 return RuntimeValue{Kind: ArrayVal, Value: arr[start:end]}
+		},
+  }},
 		"contains": {Kind: FunctionVal, Value: NativeFunction{Name: "contains", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("array.contains", args, 2)
 			assertKind("array.contains", args[0], ArrayVal)

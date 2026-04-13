@@ -51,20 +51,6 @@
     "description": "If / else statement"
   },
 
-  "Else if chain": {
-    "prefix": "elif",
-    "body": [
-      "if ${1:condition}",
-      "\t${2:}",
-      "else if ${3:condition}",
-      "\t${4:}",
-      "else",
-      "\t$0",
-      "shore"
-    ],
-    "description": "If / else if / else chain"
-  },
-
   "While loop": {
     "prefix": "while",
     "body": [
@@ -83,6 +69,12 @@
       "shore"
     ],
     "description": "For-in loop over an array"
+  },
+
+  "else if": {
+    "prefix": "elseif",
+    "body": ["else if ${1:condition}", "\t$0", "shore"],
+    "description": "Else-if branch"
   },
 
   "Counted for loop": {

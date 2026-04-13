@@ -67,11 +67,6 @@ type NativeFunction struct {
 	Call func(args []RuntimeValue) RuntimeValue
 }
 
-// MutatingNativeFunction is like NativeFunction but signals to
-// EvaluateCallExpression that the result should be written back to the
-// first argument's variable in the environment (if that argument is a
-// named variable). Used for array.push, array.pop, array.sort, array.reverse
-// so they behave as true in-place mutations.
 type MutatingNativeFunction struct {
 	Name string
 	Call func(args []RuntimeValue) RuntimeValue
@@ -209,11 +204,9 @@ func checkType(label string, val RuntimeValue, expected parser.AstType) {
 type execContext struct {
 	inLoop     bool
 	inFunction bool
-	filePath   string // absolute path of the currently-executing file
+	filePath   string
 }
 
-// moduleCache maps absolute file path → the set of exported names from that module.
-// Populated the first time a file is imported; subsequent imports reuse it.
 var moduleCache = map[string]map[string]RuntimeValue{}
 
 func Interpret(block parser.BlockStatement, filePath string) RuntimeValue {
@@ -357,8 +350,6 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 		return EvaluateBlock(s, NewEnvironment(env), ctx)
 
 	case parser.CastStatement:
-		// Execute the inner declaration normally — the export is recorded by
-		// executeModule, which wraps the whole file run.
 		return EvaluateStatement(s.Inner, env, ctx)
 
 	case parser.ImportStatement:
@@ -385,10 +376,7 @@ func EvaluateBlock(block parser.BlockStatement, env *Environment, ctx execContex
 	return result
 }
 
-// loadModule resolves a module path, executes it if not cached, and returns
-// its exported names.
 func loadModule(importPath string, ctx execContext) map[string]RuntimeValue {
-	// Resolve relative to the importing file's directory.
 	base := filepath.Dir(ctx.filePath)
 	absPath, err := filepath.Abs(filepath.Join(base, importPath))
 	if err != nil {
@@ -396,8 +384,13 @@ func loadModule(importPath string, ctx execContext) map[string]RuntimeValue {
 	}
 
 	if cached, ok := moduleCache[absPath]; ok {
+		if cached == nil {
+			panic(fmt.Sprintf("\033[31m[TunaScript Runtime Error]\033[0m import cycle detected involving '%s'", absPath))
+		}
 		return cached
 	}
+
+	moduleCache[absPath] = nil
 
 	src, err := os.ReadFile(absPath)
 	if err != nil {
@@ -411,8 +404,6 @@ func loadModule(importPath string, ctx execContext) map[string]RuntimeValue {
 	return exports
 }
 
-// executeModule runs a file in an isolated environment and collects all names
-// declared with `cast` as exports.
 func executeModule(block parser.BlockStatement, absPath string) map[string]RuntimeValue {
 	env := NewEnvironment(nil)
 	registerBuiltins(env)
@@ -667,6 +658,14 @@ func EvaluateAssignmentExpression(e parser.AssignmentExpression, env *Environmen
 			panic(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr)))
 		}
 		rhs := EvaluateExpression(e.Value, env, ctx)
+		// If the array variable has a declared []T type, enforce the element type.
+		if sym, ok2 := idx.Left.(parser.SymbolExpression); ok2 {
+			if declType := env.GetDeclaredType(sym.Value); declType != nil {
+				if arrType, ok3 := declType.(parser.ArrayType); ok3 {
+					checkType(sym.Value, rhs, arrType.Underlying)
+				}
+			}
+		}
 		arr[i] = rhs
 		return rhs
 	}
@@ -750,11 +749,15 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execC
 			args = append(args, EvaluateExpression(arg, env, ctx))
 		}
 		result := f.Call(args)
-		// Write the result back to the first argument's variable so the
-		// mutation is visible to the caller. Only works when the first
-		// argument is a plain identifier.
 		if len(e.Arguments) > 0 {
 			if sym, ok := e.Arguments[0].(parser.SymbolExpression); ok {
+				if f.Name == "push" && len(args) == 2 {
+					if declType := env.GetDeclaredType(sym.Value); declType != nil {
+						if arrType, ok2 := declType.(parser.ArrayType); ok2 {
+							checkType(sym.Value, args[1], arrType.Underlying)
+						}
+					}
+				}
 				func() {
 					defer func() { recover() }()
 					env.Update(sym.Value, result)
@@ -779,7 +782,7 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execC
 			if param.Type != nil {
 				checkType(param.Name, argVal, param.Type)
 			}
-			fnEnv.Set(param.Name, argVal)
+			fnEnv.SetTyped(param.Name, argVal, param.Type)
 		}
 
 		result := RuntimeValue{Kind: NullVal}
@@ -799,7 +802,7 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execC
 		}()
 		if f.ReturnType != nil && result.Kind == NullVal {
 			want := resolveTypeName(f.ReturnType)
-			if want != "" && want != "null" {
+			if want != "" && want != "null" && want != "void" {
 				panic(fmt.Sprintf("type mismatch for '%s() return': expected '%s' but got 'null'", f.Name, want))
 			}
 		}

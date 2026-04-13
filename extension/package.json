@@ -2,11 +2,12 @@
    "name": "tunascript",
    "displayName": "TunaScript",
    "description": "Syntax highlighting for TunaScript",
-   "version": "0.0.2",
+   "version": "0.0.3",
    "engines": { "vscode": "^1.80.0" },
    "categories": ["Programming Languages"],
    "publisher": "mayveiscous",
    "icon": "assets/tunascriptIcon.png",
+   "main": "./extension.js",
    "repository": {
      "type": "git",
      "url": "https://github.com/mayveiscous/tunascript"
