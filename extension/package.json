@@ -1,40 +1,52 @@
 {
-   "name": "tunascript",
-   "displayName": "TunaScript",
-   "description": "Syntax highlighting for TunaScript",
-   "version": "0.0.3",
-   "engines": { "vscode": "^1.80.0" },
-   "categories": ["Programming Languages"],
-   "publisher": "mayveiscous",
-   "icon": "assets/tunascriptIcon.png",
-   "main": "./extension.js",
-   "repository": {
-     "type": "git",
-     "url": "https://github.com/mayveiscous/tunascript"
-   },
-   "license": "MIT",
-   "contributes": {
-     "languages": [
-       {
-         "id": "tunascript",
-         "aliases": ["TunaScript", "tuna"],
-         "extensions": [".tuna"],
-         "configuration": "./language-configuration.json"
-       }
-     ],
-     "grammars": [
-       {
-         "language": "tunascript",
-         "scopeName": "source.tuna",
-         "path": "./syntaxes/tuna.tmLanguage.json"
-       }
-     ],
-
-     "snippets": [
+  "name": "tunascript",
+  "displayName": "TunaScript",
+  "description": "Syntax highlighting, IntelliSense, and snippets for TunaScript",
+  "version": "0.0.4",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Programming Languages"],
+  "publisher": "mayveiscous",
+  "icon": "assets/tunascriptIcon.png",
+  "main": "./extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mayveiscous/tunascript"
+  },
+  "license": "MIT",
+  "contributes": {
+    "languages": [
+      {
+        "id": "tunascript",
+        "aliases": ["TunaScript", "tuna"],
+        "extensions": [".tuna"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tunascript",
+        "scopeName": "source.tuna",
+        "path": "./syntaxes/tuna.tmLanguage.json"
+      }
+    ],
+    "snippets": [
       {
         "language": "tunascript",
         "path": "./snippets/tunascript.json"
       }
-    ]
-   }
- }
+    ],
+    "configurationDefaults": {
+      "[tunascript]": {
+        "editor.snippetSuggestions": "top",
+        "editor.quickSuggestions": {
+          "other": true,
+          "comments": false,
+          "strings": false
+        },
+        "editor.suggestOnTriggerCharacters": true,
+        "editor.wordBasedSuggestions": "off",
+        "editor.tabCompletion": "on"
+      }
+    }
+  }
+}

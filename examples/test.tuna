@@ -1,5 +1,11 @@
-from "./module" catch test
+catch x: number = 1
+anchor maxIter = 45
 
-cast catch m: string = "a"
+while x < 150
+   if x >= maxIter
+      break
+   shore
 
-bubble(test)
+   bubble(x)
+   x++
+shore
