@@ -136,13 +136,13 @@ type CastStatement struct {
 	Inner Statement
 }
 
-func (n BreakStatement) statement()    {}
-func (n ContinueStatement) statement() {}
-func (n ImportStatement) statement()   {}
-func (n CastStatement) statement()     {}
-func (n BoolExpression) expression()    {}
-func (n ReturnStatement) statement()    {}
-func (n BlockStatement) statement()     {}
+func (n BreakStatement) statement()       {}
+func (n ContinueStatement) statement()    {}
+func (n ImportStatement) statement()      {}
+func (n CastStatement) statement()        {}
+func (n BoolExpression) expression()      {}
+func (n ReturnStatement) statement()      {}
+func (n BlockStatement) statement()       {}
 func (n ExpressionStatement) statement()  {}
 func (n VariableDecStatement) statement() {}
 func (n FunctionDecStatement) statement() {}
@@ -204,7 +204,7 @@ func type_nud_reg(kind lexer.TokenKind, fn type_nud_handler) {
 	type_nud_lu[kind] = fn
 }
 
-func createTokenLookups() {
+func init() {
 	led_reg(lexer.ASSIGNMENT, assignment_bp, parse_assign_expression)
 	led_reg(lexer.PLUS_EQUALS, assignment_bp, parse_assign_expression)
 	led_reg(lexer.MINUS_EQUALS, assignment_bp, parse_assign_expression)
@@ -307,7 +307,6 @@ func (p *parser) expect(expectedKind lexer.TokenKind) lexer.Token {
 }
 
 func createParser(tokens []lexer.Token) *parser {
-	createTokenLookups()
 	return &parser{tokens: tokens, pos: 0}
 }
 
@@ -339,12 +338,13 @@ func consumeSemicolon(p *parser) {
 }
 
 func parse_break_statement(p *parser) Statement {
-    p.advance()
-    return BreakStatement{}
+	p.advance()
+	return BreakStatement{}
 }
+
 func parse_continue_statement(p *parser) Statement {
-    p.advance()
-    return ContinueStatement{}
+	p.advance()
+	return ContinueStatement{}
 }
 
 func parse_index_expression(p *parser, left Expression, bp BindingPower) Expression {
@@ -467,7 +467,6 @@ func parse_var_declaration_statement(p *parser) Statement {
 			fmt.Sprintf("constant '%s' must be assigned a value", varName)))
 	}
 
-	consumeSemicolon(p)
 	return VariableDecStatement{
 		IsConstant:    isConst,
 		VariableName:  varName,
@@ -552,7 +551,8 @@ func parse_grouping_expression(p *parser) Expression {
 
 func parse_prefix_expression(p *parser) Expression {
 	operatorToken := p.advance()
-	rhs := parse_expression(p, default_bp)
+	// Fix: use unary_bp so that -a + b parses as (-a) + b, not -(a + b).
+	rhs := parse_expression(p, unary_bp)
 	return PrefixExpression{Operator: operatorToken, RightExpression: rhs}
 }
 
@@ -592,12 +592,12 @@ func parse_symbol_type(p *parser) AstType {
 	tok := p.expect(lexer.IDENT)
 	name := tok.Value
 	validTypes := map[string]bool{
-		 "number": true, "string": true, "bool": true,
-		 "function": true, "void": true, "null": true, "array": true, "object": true,
+		"number": true, "string": true, "bool": true,
+		"function": true, "void": true, "null": true, "array": true, "object": true,
 	}
 	if !validTypes[name] {
-		 panic(lexer.NewError(tok.Line, tok.Column,
-			  fmt.Sprintf("unknown type '%s': valid types are number, string, bool, function, void, null, array", name)))
+		panic(lexer.NewError(tok.Line, tok.Column,
+			fmt.Sprintf("unknown type '%s': valid types are number, string, bool, function, void, null, array", name)))
 	}
 	return SymbolType{Name: name}
 }

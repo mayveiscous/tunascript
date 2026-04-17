@@ -9,14 +9,7 @@ import (
 	"strings"
 )
 
-type NativeFunctionWithEnv struct {
-	Name string
-	Call func(args []RuntimeValue, rawArgs []interface{}, env *Environment) RuntimeValue
-}
-
 func registerBuiltins(env *Environment) {
-	// ── globals ──────────────────────────────────────────────────────────────
-
 	env.Set("bubble", RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
 		Name: "bubble",
 		Call: func(args []RuntimeValue) RuntimeValue {
@@ -47,7 +40,8 @@ func registerBuiltins(env *Environment) {
 			case StringVal:
 				n, err := strconv.ParseFloat(args[0].Value.(string), 64)
 				if err != nil {
-					panic(fmt.Sprintf("toNumber() cannot convert \"%s\" to a number", args[0].Value.(string)))
+					panic(tunaError(fmt.Sprintf(
+						"toNumber() cannot convert \"%s\" to a number", args[0].Value.(string))))
 				}
 				return RuntimeValue{Kind: NumberVal, Value: n}
 			case BoolVal:
@@ -56,7 +50,7 @@ func registerBuiltins(env *Environment) {
 				}
 				return RuntimeValue{Kind: NumberVal, Value: float64(0)}
 			default:
-				panic(fmt.Sprintf("toNumber() cannot convert type '%s'", args[0].Kind))
+				panic(tunaError(fmt.Sprintf("toNumber() cannot convert type '%s'", args[0].Kind)))
 			}
 		},
 	}})
@@ -79,12 +73,10 @@ func registerBuiltins(env *Environment) {
 			case StringVal:
 				return RuntimeValue{Kind: NumberVal, Value: float64(len([]rune(args[0].Value.(string))))}
 			default:
-				panic(fmt.Sprintf("len() expects a string or array, got '%s'", args[0].Kind))
+				panic(tunaError(fmt.Sprintf("len() expects a string or array, got '%s'", args[0].Kind)))
 			}
 		},
 	}})
-
-	// ── math namespace ───────────────────────────────────────────────────────
 
 	mathNS := map[string]RuntimeValue{
 		"floor": {Kind: FunctionVal, Value: NativeFunction{Name: "floor", Call: func(args []RuntimeValue) RuntimeValue {
@@ -140,7 +132,7 @@ func registerBuiltins(env *Environment) {
 			lo := int(args[0].Value.(float64))
 			hi := int(args[1].Value.(float64))
 			if hi < lo {
-				panic("math.randInt() max must be >= min")
+				panic(tunaError("math.randInt() max must be >= min"))
 			}
 			return RuntimeValue{Kind: NumberVal, Value: float64(lo + rand.Intn(hi-lo+1))}
 		}}},
@@ -148,8 +140,6 @@ func registerBuiltins(env *Environment) {
 		"e":  {Kind: NumberVal, Value: math.E},
 	}
 	env.Set("math", RuntimeValue{Kind: ObjectVal, Value: mathNS})
-
-	// ── string namespace ─────────────────────────────────────────────────────
 
 	stringNS := map[string]RuntimeValue{
 		"upper": {Kind: FunctionVal, Value: NativeFunction{Name: "upper", Call: func(args []RuntimeValue) RuntimeValue {
@@ -189,7 +179,8 @@ func registerBuiltins(env *Environment) {
 			assertKind("string.replace", args[0], StringVal)
 			assertKind("string.replace", args[1], StringVal)
 			assertKind("string.replace", args[2], StringVal)
-			return RuntimeValue{Kind: StringVal, Value: strings.ReplaceAll(args[0].Value.(string), args[1].Value.(string), args[2].Value.(string))}
+			return RuntimeValue{Kind: StringVal, Value: strings.ReplaceAll(
+				args[0].Value.(string), args[1].Value.(string), args[2].Value.(string))}
 		}}},
 		"startsWith": {Kind: FunctionVal, Value: NativeFunction{Name: "startsWith", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("string.startsWith", args, 2)
@@ -209,36 +200,53 @@ func registerBuiltins(env *Environment) {
 			assertKind("string.repeat", args[1], NumberVal)
 			n := int(args[1].Value.(float64))
 			if n < 0 {
-				panic("string.repeat() count must be >= 0")
+				panic(tunaError("string.repeat() count must be >= 0"))
 			}
 			return RuntimeValue{Kind: StringVal, Value: strings.Repeat(args[0].Value.(string), n)}
 		}}},
 	}
 	env.Set("string", RuntimeValue{Kind: ObjectVal, Value: stringNS})
 
-	// ── array namespace ──────────────────────────────────────────────────────
 	arrayNS := map[string]RuntimeValue{
-		"push": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "push",
+		"push": {Kind: FunctionVal, Value: NativeFunction{Name: "push",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("array.push", args, 2)
 				assertKind("array.push", args[0], ArrayVal)
 				existing := args[0].Value.([]RuntimeValue)
-				newArr := append(existing, args[1])
+				newArr := make([]RuntimeValue, len(existing)+1)
+				copy(newArr, existing)
+				newArr[len(existing)] = args[1]
 				return RuntimeValue{Kind: ArrayVal, Value: newArr}
 			},
 		}},
-		"pop": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "pop",
+
+		"pop": {Kind: FunctionVal, Value: NativeFunction{Name: "pop",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("array.pop", args, 1)
 				assertKind("array.pop", args[0], ArrayVal)
 				existing := args[0].Value.([]RuntimeValue)
 				if len(existing) == 0 {
-					panic("array.pop() called on empty array")
+					panic(tunaError("array.pop() called on empty array"))
 				}
-				return RuntimeValue{Kind: ArrayVal, Value: existing[:len(existing)-1]}
+				return existing[len(existing)-1]
 			},
 		}},
-		"sort": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "sort",
+
+		"dropLast": {Kind: FunctionVal, Value: NativeFunction{Name: "dropLast",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("array.dropLast", args, 1)
+				assertKind("array.dropLast", args[0], ArrayVal)
+				existing := args[0].Value.([]RuntimeValue)
+				if len(existing) == 0 {
+					panic(tunaError("array.dropLast() called on empty array"))
+				}
+				newArr := make([]RuntimeValue, len(existing)-1)
+				copy(newArr, existing[:len(existing)-1])
+				return RuntimeValue{Kind: ArrayVal, Value: newArr}
+			},
+		}},
+
+		"sort": {Kind: FunctionVal, Value: NativeFunction{Name: "sort",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("array.sort", args, 1)
 				assertKind("array.sort", args[0], ArrayVal)
@@ -253,12 +261,13 @@ func registerBuiltins(env *Environment) {
 					if a.Kind == StringVal && b.Kind == StringVal {
 						return a.Value.(string) < b.Value.(string)
 					}
-					panic("array.sort() requires an array of all numbers or all strings")
+					panic(tunaError("array.sort() requires an array of all numbers or all strings"))
 				})
 				return RuntimeValue{Kind: ArrayVal, Value: newArr}
 			},
 		}},
-		"reverse": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "reverse",
+
+		"reverse": {Kind: FunctionVal, Value: NativeFunction{Name: "reverse",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("array.reverse", args, 1)
 				assertKind("array.reverse", args[0], ArrayVal)
@@ -276,35 +285,41 @@ func registerBuiltins(env *Environment) {
 			assertKind("array.first", args[0], ArrayVal)
 			arr := args[0].Value.([]RuntimeValue)
 			if len(arr) == 0 {
-				panic("array.first() called on empty array")
+				panic(tunaError("array.first() called on empty array"))
 			}
 			return arr[0]
 		}}},
+
 		"last": {Kind: FunctionVal, Value: NativeFunction{Name: "last", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("array.last", args, 1)
 			assertKind("array.last", args[0], ArrayVal)
 			arr := args[0].Value.([]RuntimeValue)
 			if len(arr) == 0 {
-				panic("array.last() called on empty array")
+				panic(tunaError("array.last() called on empty array"))
 			}
 			return arr[len(arr)-1]
 		}}},
-		"slice": {Kind: FunctionVal, Value: MutatingNativeFunction{Name: "slice",
-		Call: func(args []RuntimeValue) RuntimeValue {
-			 assertArgCount("array.slice", args, 3)
-			 assertKind("array.slice", args[0], ArrayVal)
-			 assertKind("array.slice", args[1], NumberVal)
-			 assertKind("array.slice", args[2], NumberVal)
-			 arr := args[0].Value.([]RuntimeValue)
-			 start := int(args[1].Value.(float64))
-			 end := int(args[2].Value.(float64))
-			 if start < 0 || end > len(arr) || start > end {
-				  panic(fmt.Sprintf("array.slice() index out of bounds: [%d:%d] on array of length %d", start, end, len(arr)))
-			 }
-			 // Mutate the array in place to the sliced range
-			 return RuntimeValue{Kind: ArrayVal, Value: arr[start:end]}
-		},
-  }},
+
+		"slice": {Kind: FunctionVal, Value: NativeFunction{Name: "slice",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("array.slice", args, 3)
+				assertKind("array.slice", args[0], ArrayVal)
+				assertKind("array.slice", args[1], NumberVal)
+				assertKind("array.slice", args[2], NumberVal)
+				arr := args[0].Value.([]RuntimeValue)
+				start := int(args[1].Value.(float64))
+				end := int(args[2].Value.(float64))
+				if start < 0 || end > len(arr) || start > end {
+					panic(tunaError(fmt.Sprintf(
+						"array.slice() index out of bounds: [%d:%d] on array of length %d",
+						start, end, len(arr))))
+				}
+				newArr := make([]RuntimeValue, end-start)
+				copy(newArr, arr[start:end])
+				return RuntimeValue{Kind: ArrayVal, Value: newArr}
+			},
+		}},
+
 		"contains": {Kind: FunctionVal, Value: NativeFunction{Name: "contains", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("array.contains", args, 2)
 			assertKind("array.contains", args[0], ArrayVal)
@@ -316,6 +331,7 @@ func registerBuiltins(env *Environment) {
 			}
 			return RuntimeValue{Kind: BoolVal, Value: false}
 		}}},
+
 		"join": {Kind: FunctionVal, Value: NativeFunction{Name: "join", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("array.join", args, 2)
 			assertKind("array.join", args[0], ArrayVal)
@@ -333,13 +349,13 @@ func registerBuiltins(env *Environment) {
 
 func assertArgCount(name string, args []RuntimeValue, n int) {
 	if len(args) != n {
-		panic(fmt.Sprintf("%s() expects %d argument(s) but got %d", name, n, len(args)))
+		panic(tunaError(fmt.Sprintf("%s() expects %d argument(s) but got %d", name, n, len(args))))
 	}
 }
 
 func assertKind(name string, val RuntimeValue, expected ValueKind) {
 	if val.Kind != expected {
-		panic(fmt.Sprintf("%s() expects a %s but got '%s'", name, expected, val.Kind))
+		panic(tunaError(fmt.Sprintf("%s() expects a %s but got '%s'", name, expected, val.Kind)))
 	}
 }
 

@@ -1,9 +1,2 @@
-cast catch fish: array = ["tuna", "salmon", "mackeral", "bass", "trout"]
-
-cast swim add(a: number, b: number): number
-   serve a + b
-shore
-
-cast swim printLn(msg: string): null
-   bubble(msg)
-shore
+from "another" catch add 
+cast catch test: number = add(5, 4)

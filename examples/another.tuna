@@ -1,0 +1,5 @@
+from "test.tuna" catch m
+
+cast swim add(a: number, b: number): number
+   serve a + b
+shore

@@ -1,3 +1,5 @@
-from "examples/module.tuna" catch printLn as print
+from "./module" catch test
 
-print("hi")
+cast catch m: string = "a"
+
+bubble(test)

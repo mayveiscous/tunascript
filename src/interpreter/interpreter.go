@@ -47,10 +47,6 @@ type RuntimeValue struct {
 	Value any
 }
 
-type ReturnSignal struct {
-	Value RuntimeValue
-}
-
 type FunctionValue struct {
 	Name       string
 	Parameters []parser.FunctionParameter
@@ -59,18 +55,31 @@ type FunctionValue struct {
 	Env        *Environment
 }
 
-type BreakSignal struct{}
-type ContinueSignal struct{}
-
 type NativeFunction struct {
 	Name string
 	Call func(args []RuntimeValue) RuntimeValue
 }
 
-type MutatingNativeFunction struct {
-	Name string
-	Call func(args []RuntimeValue) RuntimeValue
+type signalKind int
+
+const (
+	sigNone signalKind = iota
+	sigReturn
+	sigBreak
+	sigContinue
+)
+
+type EvalResult struct {
+	Value  RuntimeValue
+	Signal signalKind
 }
+
+var nullResult = EvalResult{Value: RuntimeValue{Kind: NullVal}}
+
+func returnResult(v RuntimeValue) EvalResult  { return EvalResult{Value: v, Signal: sigReturn} }
+func breakResult() EvalResult                 { return EvalResult{Value: RuntimeValue{Kind: NullVal}, Signal: sigBreak} }
+func continueResult() EvalResult              { return EvalResult{Value: RuntimeValue{Kind: NullVal}, Signal: sigContinue} }
+func valueResult(v RuntimeValue) EvalResult   { return EvalResult{Value: v} }
 
 type Environment struct {
 	variables     map[string]RuntimeValue
@@ -88,18 +97,26 @@ func NewEnvironment(parent *Environment) *Environment {
 	}
 }
 
-func (e *Environment) Update(name string, val RuntimeValue) RuntimeValue {
+func (e *Environment) Update(name string, val RuntimeValue) (RuntimeValue, error) {
 	if _, ok := e.variables[name]; ok {
 		if e.constants[name] {
-			panic(fmt.Sprintf("cannot reassign constant '%s'", name))
+			return RuntimeValue{}, fmt.Errorf("cannot reassign constant '%s'", name)
 		}
 		e.variables[name] = val
-		return val
+		return val, nil
 	}
 	if e.parent != nil {
 		return e.parent.Update(name, val)
 	}
-	panic(fmt.Sprintf("cannot assign to undefined variable '%s'", name))
+	return RuntimeValue{}, fmt.Errorf("cannot assign to undefined variable '%s'", name)
+}
+
+func (e *Environment) MustUpdate(name string, val RuntimeValue) RuntimeValue {
+	v, err := e.Update(name, val)
+	if err != nil {
+		panic(tunaError(err.Error()))
+	}
+	return v
 }
 
 func (e *Environment) Set(name string, val RuntimeValue) RuntimeValue {
@@ -121,14 +138,22 @@ func (e *Environment) SetConst(name string, val RuntimeValue) RuntimeValue {
 	return val
 }
 
-func (e *Environment) Get(name string) RuntimeValue {
+func (e *Environment) Get(name string) (RuntimeValue, bool) {
 	if val, ok := e.variables[name]; ok {
-		return val
+		return val, true
 	}
 	if e.parent != nil {
 		return e.parent.Get(name)
 	}
-	panic(fmt.Sprintf("undefined variable '%s'", name))
+	return RuntimeValue{}, false
+}
+
+func (e *Environment) MustGet(name string) RuntimeValue {
+	v, ok := e.Get(name)
+	if !ok {
+		panic(tunaError(fmt.Sprintf("undefined variable '%s'", name)))
+	}
+	return v
 }
 
 func (e *Environment) GetDeclaredType(name string) parser.AstType {
@@ -163,40 +188,44 @@ func checkType(label string, val RuntimeValue, expected parser.AstType) {
 	switch exp := expected.(type) {
 	case parser.ArrayType:
 		if val.Kind == NullVal {
-			return
+			panic(tunaError(fmt.Sprintf(
+				"type mismatch for '%s': cannot assign null to '%s'",
+				label, resolveTypeName(expected))))
 		}
 		if val.Kind != ArrayVal {
-			want := resolveTypeName(expected)
-			panic(fmt.Sprintf("type mismatch for '%s': expected '%s' but got '%s'", label, want, val.Kind.String()))
+			panic(tunaError(fmt.Sprintf(
+				"type mismatch for '%s': expected '%s' but got '%s'",
+				label, resolveTypeName(expected), val.Kind.String())))
 		}
 		elemTypeName := resolveTypeName(exp.Underlying)
 		if elemTypeName != "" {
 			for _, elem := range val.Value.([]RuntimeValue) {
 				got := elem.Kind.String()
 				if got != elemTypeName {
-					panic(fmt.Sprintf("type mismatch for '%s': expected '[]%s' contents but got '%s'", label, elemTypeName, got))
+					panic(tunaError(fmt.Sprintf(
+						"type mismatch for '%s': expected '[]%s' contents but got '%s'",
+						label, elemTypeName, got)))
 				}
 			}
 		}
 	case parser.SymbolType:
 		want := exp.Name
 		if want == "" {
-			 return
+			return
 		}
-		validTypes := map[string]bool{
-			 "number": true, "string": true, "bool": true,
-			 "function": true, "void": true, "null": true, "array": true, "object": true,
-		}
-		if !validTypes[want] {
-			 panic(fmt.Sprintf("unknown type '%s': valid types are number, string, bool, function, void, null, array", want))
-		}
-  
 		if val.Kind == NullVal {
-			 return
+			if want == "null" || want == "void" {
+				return
+			}
+			panic(tunaError(fmt.Sprintf(
+				"type mismatch for '%s': cannot assign null to '%s'",
+				label, want)))
 		}
 		got := val.Kind.String()
 		if got != want {
-			 panic(fmt.Sprintf("type mismatch for '%s': expected '%s' but got '%s'", label, want, got))
+			panic(tunaError(fmt.Sprintf(
+				"type mismatch for '%s': expected '%s' but got '%s'",
+				label, want, got)))
 		}
 	}
 }
@@ -205,35 +234,54 @@ type execContext struct {
 	inLoop     bool
 	inFunction bool
 	filePath   string
+	moduleCache map[string]map[string]RuntimeValue
+	builtinNames map[string]bool
 }
 
-var moduleCache = map[string]map[string]RuntimeValue{}
+func (ctx execContext) withLoop() execContext {
+	ctx.inLoop = true
+	return ctx
+}
+
+func (ctx execContext) withFunction() execContext {
+	ctx.inLoop = false
+	ctx.inFunction = true
+	return ctx
+}
 
 func Interpret(block parser.BlockStatement, filePath string) RuntimeValue {
 	env := NewEnvironment(nil)
 	registerBuiltins(env)
-	builtinNames = map[string]bool{}
+
+	builtinNames := map[string]bool{}
 	for k := range env.variables {
 		builtinNames[k] = true
 	}
-	// Reset module cache for each fresh top-level execution.
-	moduleCache = map[string]map[string]RuntimeValue{}
+
 	absPath, _ := filepath.Abs(filePath)
-	var result RuntimeValue
-	ctx := execContext{filePath: absPath}
+	ctx := execContext{
+		filePath:    absPath,
+		moduleCache: map[string]map[string]RuntimeValue{},
+		builtinNames: builtinNames,
+	}
+
+	result := nullResult
 	for _, stmt := range block.Body {
 		result = EvaluateStatement(stmt, env, ctx)
+		if result.Signal != sigNone {
+			break
+		}
 	}
-	return result
+	return result.Value
 }
 
-var builtinNames map[string]bool
-
-func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext) RuntimeValue {
+func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext) EvalResult {
 	switch s := stmt.(type) {
 
 	case parser.ExpressionStatement:
-		return EvaluateExpression(s.Expression, env, ctx)
+		val := EvaluateExpression(s.Expression, env, ctx)
+		return valueResult(val)
+
 	case parser.VariableDecStatement:
 		val := RuntimeValue{Kind: NullVal}
 		if s.AssignedValue != nil {
@@ -245,7 +293,8 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 		} else {
 			env.SetTyped(s.VariableName, val, s.ExplicitType)
 		}
-		return val
+		return valueResult(val)
+
 	case parser.BreakStatement:
 		if !ctx.inLoop {
 			if ctx.inFunction {
@@ -253,7 +302,8 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 			}
 			panic(tunaError("`break` can only be used inside a loop"))
 		}
-		panic(BreakSignal{})
+		return breakResult()
+
 	case parser.ContinueStatement:
 		if !ctx.inLoop {
 			if ctx.inFunction {
@@ -261,13 +311,15 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 			}
 			panic(tunaError("`continue` can only be used inside a loop"))
 		}
-		panic(ContinueSignal{})
+		return continueResult()
+
 	case parser.ReturnStatement:
 		if !ctx.inFunction {
 			panic(tunaError("`serve` can only be used inside a function"))
 		}
 		val := EvaluateExpression(s.Value, env, ctx)
-		panic(ReturnSignal{Value: val})
+		return returnResult(val)
+
 	case parser.IfStatement:
 		condition := EvaluateExpression(s.Condition, env, ctx)
 		if isTruthy(condition) {
@@ -275,62 +327,54 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 		} else if s.Else != nil {
 			return EvaluateBlock(*s.Else, NewEnvironment(env), ctx)
 		}
-		return RuntimeValue{Kind: NullVal}
+		return nullResult
+
 	case parser.WhileStatement:
-		result := RuntimeValue{Kind: NullVal}
-		shouldBreak := false
-		loopCtx := execContext{inLoop: true, inFunction: ctx.inFunction, filePath: ctx.filePath}
-		for !shouldBreak {
+		result := nullResult
+		loopCtx := ctx.withLoop()
+		for {
 			if !isTruthy(EvaluateExpression(s.Condition, env, ctx)) {
 				break
 			}
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						switch r.(type) {
-						case BreakSignal:
-							shouldBreak = true
-						case ContinueSignal:
-						default:
-							panic(r)
-						}
-					}
-				}()
-				result = EvaluateBlock(s.Body, NewEnvironment(env), loopCtx)
-			}()
+			r := EvaluateBlock(s.Body, NewEnvironment(env), loopCtx)
+			switch r.Signal {
+			case sigBreak:
+				return nullResult
+			case sigContinue:
+				continue
+			case sigReturn:
+				return r
+			}
+			result = r
 		}
 		return result
+
 	case parser.ForInStatement:
 		iterable := EvaluateExpression(s.Iterable, env, ctx)
 		if iterable.Kind != ArrayVal {
-			panic(fmt.Sprintf("cannot iterate over non-array value of type '%s' in for/in", iterable.Kind))
+			panic(tunaError(fmt.Sprintf(
+				"cannot iterate over non-array value of type '%s' in for/in", iterable.Kind)))
 		}
-		result := RuntimeValue{Kind: NullVal}
-		shouldBreak := false
-		loopCtx := execContext{inLoop: true, inFunction: ctx.inFunction, filePath: ctx.filePath}
+		result := nullResult
+		loopCtx := ctx.withLoop()
 		for _, element := range iterable.Value.([]RuntimeValue) {
-			if shouldBreak {
-				break
+			loopEnv := NewEnvironment(env)
+			loopEnv.Set(s.Iterator, element)
+			r := EvaluateBlock(s.Body, loopEnv, loopCtx)
+			switch r.Signal {
+			case sigBreak:
+				return nullResult
+			case sigContinue:
+				continue
+			case sigReturn:
+				return r
 			}
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						switch r.(type) {
-						case BreakSignal:
-							shouldBreak = true
-						case ContinueSignal:
-						default:
-							panic(r)
-						}
-					}
-				}()
-				loopEnv := NewEnvironment(env)
-				loopEnv.Set(s.Iterator, element)
-				result = EvaluateBlock(s.Body, loopEnv, loopCtx)
-			}()
+			result = r
 		}
 		return result
+
 	case parser.FunctionDecStatement:
+		closureEnv := NewEnvironment(env)
 		fn := RuntimeValue{
 			Kind: FunctionVal,
 			Value: FunctionValue{
@@ -338,14 +382,17 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 				Parameters: s.Parameters,
 				ReturnType: s.ReturnType,
 				Body:       s.Body,
-				Env:        env,
+				Env:        closureEnv,
 			},
 		}
-		if builtinNames[s.Name] {
+		closureEnv.Set(s.Name, fn)
+
+		if ctx.builtinNames[s.Name] {
 			fmt.Printf("\033[33m[TunaScript Warning]\033[0m overwriting builtin '%s'\n", s.Name)
 		}
 		env.Set(s.Name, fn)
-		return fn
+		return valueResult(fn)
+
 	case parser.BlockStatement:
 		return EvaluateBlock(s, NewEnvironment(env), ctx)
 
@@ -357,78 +404,95 @@ func EvaluateStatement(stmt parser.Statement, env *Environment, ctx execContext)
 		for _, item := range s.Items {
 			val, ok := exports[item.Name]
 			if !ok {
-				panic(fmt.Sprintf("module '%s' does not export '%s'", s.Path, item.Name))
+				panic(tunaError(fmt.Sprintf(
+					"module '%s' does not export '%s'", s.Path, item.Name)))
 			}
 			env.Set(item.Alias, val)
 		}
-		return RuntimeValue{Kind: NullVal}
+		return nullResult
 
 	default:
-		panic(fmt.Sprintf("unknown statement type: %T", stmt))
+		panic(tunaError(fmt.Sprintf("unknown statement type: %T", stmt)))
 	}
 }
 
-func EvaluateBlock(block parser.BlockStatement, env *Environment, ctx execContext) RuntimeValue {
-	result := RuntimeValue{Kind: NullVal}
+func EvaluateBlock(block parser.BlockStatement, env *Environment, ctx execContext) EvalResult {
+	result := nullResult
 	for _, stmt := range block.Body {
 		result = EvaluateStatement(stmt, env, ctx)
+
+		if result.Signal != sigNone {
+			return result
+		}
 	}
 	return result
 }
 
 func loadModule(importPath string, ctx execContext) map[string]RuntimeValue {
-	base := filepath.Dir(ctx.filePath)
-	absPath, err := filepath.Abs(filepath.Join(base, importPath))
-	if err != nil {
-		panic(fmt.Sprintf("cannot resolve import path '%s': %s", importPath, err))
+	if filepath.Ext(importPath) == "" {
+		importPath += ".tuna"
 	}
 
-	if cached, ok := moduleCache[absPath]; ok {
+	var absPath string
+	var err error
+
+	baseDir := filepath.Dir(ctx.filePath)
+	if filepath.IsAbs(importPath) {
+		absPath = importPath
+	} else {
+		absPath, err = filepath.Abs(filepath.Join(baseDir, importPath))
+		if err != nil {
+			panic(tunaError(fmt.Sprintf("cannot resolve import path '%s': %s", importPath, err)))
+		}
+	}
+
+	if cached, ok := ctx.moduleCache[absPath]; ok {
 		if cached == nil {
-			panic(fmt.Sprintf("\033[31m[TunaScript Runtime Error]\033[0m import cycle detected involving '%s'", absPath))
+			panic(tunaError(fmt.Sprintf(
+				"import cycle detected involving '%s'", absPath)))
 		}
 		return cached
 	}
 
-	moduleCache[absPath] = nil
+	ctx.moduleCache[absPath] = nil
 
 	src, err := os.ReadFile(absPath)
 	if err != nil {
-		panic(fmt.Sprintf("cannot read module '%s': %s", absPath, err))
+		panic(tunaError(fmt.Sprintf("cannot read module '%s': %s", absPath, err)))
 	}
 
 	tokens := lexer.Lex(string(src))
 	block := parser.Parse(tokens)
-	exports := executeModule(block, absPath)
-	moduleCache[absPath] = exports
+
+	exports := executeModule(block, absPath, ctx)
+	ctx.moduleCache[absPath] = exports
 	return exports
 }
 
-func executeModule(block parser.BlockStatement, absPath string) map[string]RuntimeValue {
+func executeModule(block parser.BlockStatement, absPath string, parentCtx execContext) map[string]RuntimeValue {
 	env := NewEnvironment(nil)
 	registerBuiltins(env)
 	exports := map[string]RuntimeValue{}
-	ctx := execContext{filePath: absPath}
+	ctx := execContext{
+		filePath:    absPath,
+		moduleCache: parentCtx.moduleCache,
+		builtinNames: parentCtx.builtinNames,
+	}
 
 	for _, stmt := range block.Body {
 		if cast, ok := stmt.(parser.CastStatement); ok {
 			EvaluateStatement(cast, env, ctx)
-			// After evaluating, pull the just-declared name into exports.
 			switch inner := cast.Inner.(type) {
 			case parser.FunctionDecStatement:
-				exports[inner.Name] = env.Get(inner.Name)
+				exports[inner.Name] = env.MustGet(inner.Name)
 			case parser.VariableDecStatement:
-				exports[inner.VariableName] = env.Get(inner.VariableName)
+				exports[inner.VariableName] = env.MustGet(inner.VariableName)
 			}
 		} else {
 			EvaluateStatement(stmt, env, ctx)
 		}
 	}
 	return exports
-}
-
-func tunaError(msg string) string {
-	return fmt.Sprintf("\033[31m[TunaScript Error]\033[0m %s", msg)
 }
 
 func EvaluateExpression(expr parser.Expression, env *Environment, ctx execContext) RuntimeValue {
@@ -444,35 +508,44 @@ func EvaluateExpression(expr parser.Expression, env *Environment, ctx execContex
 		if e.Value == "nil" {
 			return RuntimeValue{Kind: NullVal}
 		}
-		return env.Get(e.Value)
+		return env.MustGet(e.Value)
+
+	case parser.BoolExpression:
+		return RuntimeValue{Kind: BoolVal, Value: e.Value}
 
 	case parser.IndexExpression:
 		left := EvaluateExpression(e.Left, env, ctx)
 		index := EvaluateExpression(e.Index, env, ctx)
 		if index.Kind != NumberVal {
-			panic("index must be a number")
+			panic(tunaError("index must be a number"))
 		}
 		i := int(index.Value.(float64))
 		if left.Kind == ArrayVal {
 			arr := left.Value.([]RuntimeValue)
-			if i < 0 || i >= len(arr) {
-				panic(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr)))
+			if i < 0 {
+				panic(tunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
+			}
+			if i >= len(arr) {
+				panic(tunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr))))
 			}
 			return arr[i]
 		}
 		if left.Kind == StringVal {
 			runes := []rune(left.Value.(string))
-			if i < 0 || i >= len(runes) {
-				panic(fmt.Sprintf("index %d out of bounds (length %d)", i, len(runes)))
+			if i < 0 {
+				panic(tunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
+			}
+			if i >= len(runes) {
+				panic(tunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(runes))))
 			}
 			return RuntimeValue{Kind: StringVal, Value: string(runes[i])}
 		}
-		panic(fmt.Sprintf("cannot index into type '%s'", left.Kind))
+		panic(tunaError(fmt.Sprintf("cannot index into type '%s'", left.Kind)))
 
 	case parser.ArrayLiteral:
-		elements := []RuntimeValue{}
-		for _, el := range e.Elements {
-			elements = append(elements, EvaluateExpression(el, env, ctx))
+		elements := make([]RuntimeValue, len(e.Elements))
+		for i, el := range e.Elements {
+			elements[i] = EvaluateExpression(el, env, ctx)
 		}
 		return RuntimeValue{Kind: ArrayVal, Value: elements}
 
@@ -486,12 +559,13 @@ func EvaluateExpression(expr parser.Expression, env *Environment, ctx execContex
 	case parser.MemberExpression:
 		obj := EvaluateExpression(e.Object, env, ctx)
 		if obj.Kind != ObjectVal {
-			panic(fmt.Sprintf("cannot access property '%s' on type '%s'", e.Property, obj.Kind))
+			panic(tunaError(fmt.Sprintf(
+				"cannot access property '%s' on type '%s'", e.Property, obj.Kind)))
 		}
 		props := obj.Value.(map[string]RuntimeValue)
 		val, ok := props[e.Property]
 		if !ok {
-			panic(fmt.Sprintf("property '%s' does not exist on object", e.Property))
+			panic(tunaError(fmt.Sprintf("property '%s' does not exist on object", e.Property)))
 		}
 		return val
 
@@ -506,8 +580,6 @@ func EvaluateExpression(expr parser.Expression, env *Environment, ctx execContex
 
 	case parser.CallExpression:
 		return EvaluateCallExpression(e, env, ctx)
-	case parser.BoolExpression:
-		return RuntimeValue{Kind: BoolVal, Value: e.Value}
 
 	case parser.PostfixExpression:
 		return EvaluatePostfixExpression(e, env, ctx)
@@ -517,21 +589,22 @@ func EvaluateExpression(expr parser.Expression, env *Environment, ctx execContex
 		return RuntimeValue{Kind: StringVal, Value: val.Kind.String()}
 
 	default:
-		panic(fmt.Sprintf("unknown expression type: %T", expr))
+		panic(tunaError(fmt.Sprintf("unknown expression type: %T", expr)))
 	}
 }
+
 func EvaluatePrefixExpression(e parser.PrefixExpression, env *Environment, ctx execContext) RuntimeValue {
 	right := EvaluateExpression(e.RightExpression, env, ctx)
 	switch e.Operator.Kind {
 	case lexer.DASH:
 		if right.Kind != NumberVal {
-			panic(fmt.Sprintf("unary '-' cannot be applied to type '%s'", right.Kind))
+			panic(tunaError(fmt.Sprintf("unary '-' cannot be applied to type '%s'", right.Kind)))
 		}
 		return RuntimeValue{Kind: NumberVal, Value: -right.Value.(float64)}
 	case lexer.NOT:
 		return RuntimeValue{Kind: BoolVal, Value: !isTruthy(right)}
 	default:
-		panic(fmt.Sprintf("unknown prefix operator '%s'", e.Operator.Value))
+		panic(tunaError(fmt.Sprintf("unknown prefix operator '%s'", e.Operator.Value)))
 	}
 }
 
@@ -568,12 +641,12 @@ func EvaluateBinaryExpression(e parser.BinaryExpression, env *Environment, ctx e
 			return RuntimeValue{Kind: NumberVal, Value: l * r}
 		case lexer.SLASH:
 			if r == 0 {
-				panic("division by zero")
+				panic(tunaError("division by zero"))
 			}
 			return RuntimeValue{Kind: NumberVal, Value: l / r}
 		case lexer.PERCENT:
 			if r == 0 {
-				panic("division by zero")
+				panic(tunaError("modulo by zero"))
 			}
 			return RuntimeValue{Kind: NumberVal, Value: math.Mod(l, r)}
 		case lexer.LESS:
@@ -626,48 +699,104 @@ func EvaluateBinaryExpression(e parser.BinaryExpression, env *Environment, ctx e
 		}
 	}
 
-	panic(fmt.Sprintf("operator '%s' cannot be applied to types '%s' and '%s'",
-		e.Operator.Value, left.Kind, right.Kind))
+	panic(tunaError(fmt.Sprintf("operator '%s' cannot be applied to types '%s' and '%s'",
+		e.Operator.Value, left.Kind, right.Kind)))
+}
+
+func applyCompoundOp(op lexer.Token, current, rhs RuntimeValue) RuntimeValue {
+	switch op.Kind {
+	case lexer.PLUS_EQUALS:
+		if current.Kind == NumberVal && rhs.Kind == NumberVal {
+			return RuntimeValue{Kind: NumberVal, Value: current.Value.(float64) + rhs.Value.(float64)}
+		}
+		if current.Kind == StringVal && rhs.Kind == StringVal {
+			return RuntimeValue{Kind: StringVal, Value: current.Value.(string) + rhs.Value.(string)}
+		}
+		panic(tunaError(fmt.Sprintf("'+=' cannot be applied to types '%s' and '%s'", current.Kind, rhs.Kind)))
+	case lexer.MINUS_EQUALS:
+		if current.Kind != NumberVal || rhs.Kind != NumberVal {
+			panic(tunaError(fmt.Sprintf("'-=' requires number operands, got '%s' and '%s'", current.Kind, rhs.Kind)))
+		}
+		return RuntimeValue{Kind: NumberVal, Value: current.Value.(float64) - rhs.Value.(float64)}
+	case lexer.STAR_EQUALS:
+		if current.Kind != NumberVal || rhs.Kind != NumberVal {
+			panic(tunaError(fmt.Sprintf("'*=' requires number operands, got '%s' and '%s'", current.Kind, rhs.Kind)))
+		}
+		return RuntimeValue{Kind: NumberVal, Value: current.Value.(float64) * rhs.Value.(float64)}
+	case lexer.SLASH_EQUALS:
+		if current.Kind != NumberVal || rhs.Kind != NumberVal {
+			panic(tunaError(fmt.Sprintf("'/=' requires number operands, got '%s' and '%s'", current.Kind, rhs.Kind)))
+		}
+		if rhs.Value.(float64) == 0 {
+			panic(tunaError("division by zero"))
+		}
+		return RuntimeValue{Kind: NumberVal, Value: current.Value.(float64) / rhs.Value.(float64)}
+	default:
+		panic(tunaError(fmt.Sprintf("unknown compound operator '%s'", op.Value)))
+	}
 }
 
 func EvaluateAssignmentExpression(e parser.AssignmentExpression, env *Environment, ctx execContext) RuntimeValue {
-	// obj.key = val
 	if mem, ok := e.Assigne.(parser.MemberExpression); ok {
 		obj := EvaluateExpression(mem.Object, env, ctx)
 		if obj.Kind != ObjectVal {
-			panic(fmt.Sprintf("cannot assign property '%s' on type '%s'", mem.Property, obj.Kind))
+			panic(tunaError(fmt.Sprintf(
+				"cannot assign property '%s' on type '%s'", mem.Property, obj.Kind)))
 		}
+		props := obj.Value.(map[string]RuntimeValue)
 		rhs := EvaluateExpression(e.Value, env, ctx)
-		obj.Value.(map[string]RuntimeValue)[mem.Property] = rhs
-		return rhs
+		var newVal RuntimeValue
+		if e.Operator.Kind == lexer.ASSIGNMENT {
+			newVal = rhs
+		} else {
+			current, exists := props[mem.Property]
+			if !exists {
+				panic(tunaError(fmt.Sprintf("property '%s' does not exist on object", mem.Property)))
+			}
+			newVal = applyCompoundOp(e.Operator, current, rhs)
+		}
+		props[mem.Property] = newVal
+		return newVal
 	}
-
 
 	if idx, ok := e.Assigne.(parser.IndexExpression); ok {
 		arrVal := EvaluateExpression(idx.Left, env, ctx)
 		if arrVal.Kind != ArrayVal {
-			panic(fmt.Sprintf("cannot index-assign into type '%s'", arrVal.Kind))
+			panic(tunaError(fmt.Sprintf("cannot index-assign into type '%s'", arrVal.Kind)))
 		}
 		indexVal := EvaluateExpression(idx.Index, env, ctx)
 		if indexVal.Kind != NumberVal {
-			panic("index must be a number")
+			panic(tunaError("index must be a number"))
 		}
 		i := int(indexVal.Value.(float64))
 		arr := arrVal.Value.([]RuntimeValue)
-		if i < 0 || i >= len(arr) {
-			panic(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr)))
+		if i < 0 {
+			panic(tunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
 		}
+		if i >= len(arr) {
+			panic(tunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr))))
+		}
+
 		rhs := EvaluateExpression(e.Value, env, ctx)
-		// If the array variable has a declared []T type, enforce the element type.
+		var newVal RuntimeValue
+		if e.Operator.Kind == lexer.ASSIGNMENT {
+			newVal = rhs
+		} else {
+			newVal = applyCompoundOp(e.Operator, arr[i], rhs)
+		}
+
 		if sym, ok2 := idx.Left.(parser.SymbolExpression); ok2 {
 			if declType := env.GetDeclaredType(sym.Value); declType != nil {
 				if arrType, ok3 := declType.(parser.ArrayType); ok3 {
-					checkType(sym.Value, rhs, arrType.Underlying)
+					checkType(sym.Value, newVal, arrType.Underlying)
 				}
 			}
 		}
-		arr[i] = rhs
-		return rhs
+		arr[i] = newVal
+		if sym, ok2 := idx.Left.(parser.SymbolExpression); ok2 {
+			env.MustUpdate(sym.Value, RuntimeValue{Kind: ArrayVal, Value: arr})
+		}
+		return newVal
 	}
 
 	symbol, ok := e.Assigne.(parser.SymbolExpression)
@@ -675,44 +804,13 @@ func EvaluateAssignmentExpression(e parser.AssignmentExpression, env *Environmen
 		panic(tunaError("invalid assignment target"))
 	}
 
-	current := env.Get(symbol.Value)
+	current := env.MustGet(symbol.Value)
 	var newVal RuntimeValue
-
-	switch e.Operator.Kind {
-	case lexer.ASSIGNMENT:
+	if e.Operator.Kind == lexer.ASSIGNMENT {
 		newVal = EvaluateExpression(e.Value, env, ctx)
-	case lexer.PLUS_EQUALS:
+	} else {
 		rhs := EvaluateExpression(e.Value, env, ctx)
-		if current.Kind == NumberVal && rhs.Kind == NumberVal {
-			newVal = RuntimeValue{Kind: NumberVal, Value: current.Value.(float64) + rhs.Value.(float64)}
-		} else if current.Kind == StringVal && rhs.Kind == StringVal {
-			newVal = RuntimeValue{Kind: StringVal, Value: current.Value.(string) + rhs.Value.(string)}
-		} else {
-			panic(fmt.Sprintf("'+=' cannot be applied to types '%s' and '%s'", current.Kind, rhs.Kind))
-		}
-	case lexer.MINUS_EQUALS:
-		rhs := EvaluateExpression(e.Value, env, ctx)
-		if current.Kind != NumberVal || rhs.Kind != NumberVal {
-			panic(fmt.Sprintf("'-=' requires number operands, got '%s' and '%s'", current.Kind, rhs.Kind))
-		}
-		newVal = RuntimeValue{Kind: NumberVal, Value: current.Value.(float64) - rhs.Value.(float64)}
-	case lexer.STAR_EQUALS:
-		rhs := EvaluateExpression(e.Value, env, ctx)
-		if current.Kind != NumberVal || rhs.Kind != NumberVal {
-			panic(fmt.Sprintf("'*=' requires number operands, got '%s' and '%s'", current.Kind, rhs.Kind))
-		}
-		newVal = RuntimeValue{Kind: NumberVal, Value: current.Value.(float64) * rhs.Value.(float64)}
-	case lexer.SLASH_EQUALS:
-		rhs := EvaluateExpression(e.Value, env, ctx)
-		if current.Kind != NumberVal || rhs.Kind != NumberVal {
-			panic(fmt.Sprintf("'/=' requires number operands, got '%s' and '%s'", current.Kind, rhs.Kind))
-		}
-		if rhs.Value.(float64) == 0 {
-			panic("division by zero")
-		}
-		newVal = RuntimeValue{Kind: NumberVal, Value: current.Value.(float64) / rhs.Value.(float64)}
-	default:
-		panic(fmt.Sprintf("unknown assignment operator '%s'", e.Operator.Value))
+		newVal = applyCompoundOp(e.Operator, current, rhs)
 	}
 
 	declaredType := env.GetDeclaredType(symbol.Value)
@@ -720,56 +818,33 @@ func EvaluateAssignmentExpression(e parser.AssignmentExpression, env *Environmen
 		checkType(symbol.Value, newVal, declaredType)
 	}
 
-	if builtinNames[symbol.Value] {
+	if ctx.builtinNames[symbol.Value] {
 		fmt.Printf("\033[33m[TunaScript Warning]\033[0m overwriting builtin '%s'\n", symbol.Value)
 	}
 
-	env.Update(symbol.Value, newVal)
+	env.MustUpdate(symbol.Value, newVal)
 	return newVal
 }
 
 func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execContext) RuntimeValue {
 	callee := EvaluateExpression(e.Callee, env, ctx)
 	if callee.Kind != FunctionVal {
-		panic(fmt.Sprintf("cannot call a value of type '%s'", callee.Kind))
+		panic(tunaError(fmt.Sprintf("cannot call a value of type '%s'", callee.Kind)))
 	}
 
 	switch f := callee.Value.(type) {
 	case NativeFunction:
-		args := []RuntimeValue{}
-		for _, arg := range e.Arguments {
-			args = append(args, EvaluateExpression(arg, env, ctx))
+		args := make([]RuntimeValue, len(e.Arguments))
+		for i, arg := range e.Arguments {
+			args[i] = EvaluateExpression(arg, env, ctx)
 		}
 		return f.Call(args)
 
-	case MutatingNativeFunction:
-		// Evaluate all arguments normally.
-		args := []RuntimeValue{}
-		for _, arg := range e.Arguments {
-			args = append(args, EvaluateExpression(arg, env, ctx))
-		}
-		result := f.Call(args)
-		if len(e.Arguments) > 0 {
-			if sym, ok := e.Arguments[0].(parser.SymbolExpression); ok {
-				if f.Name == "push" && len(args) == 2 {
-					if declType := env.GetDeclaredType(sym.Value); declType != nil {
-						if arrType, ok2 := declType.(parser.ArrayType); ok2 {
-							checkType(sym.Value, args[1], arrType.Underlying)
-						}
-					}
-				}
-				func() {
-					defer func() { recover() }()
-					env.Update(sym.Value, result)
-				}()
-			}
-		}
-		return result
-
 	case FunctionValue:
 		if len(e.Arguments) != len(f.Parameters) {
-			panic(fmt.Sprintf("function '%s' expects %d argument(s) but got %d",
-				f.Name, len(f.Parameters), len(e.Arguments)))
+			panic(tunaError(fmt.Sprintf(
+				"function '%s' expects %d argument(s) but got %d",
+				f.Name, len(f.Parameters), len(e.Arguments))))
 		}
 
 		declEnv := f.Env
@@ -785,50 +860,47 @@ func EvaluateCallExpression(e parser.CallExpression, env *Environment, ctx execC
 			fnEnv.SetTyped(param.Name, argVal, param.Type)
 		}
 
-		result := RuntimeValue{Kind: NullVal}
-		fnCtx := execContext{inLoop: false, inFunction: true, filePath: ctx.filePath}
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					if ret, ok := r.(ReturnSignal); ok {
-						checkType(f.Name+"() return", ret.Value, f.ReturnType)
-						result = ret.Value
-					} else {
-						panic(r)
-					}
-				}
-			}()
-			EvaluateBlock(f.Body, fnEnv, fnCtx)
-		}()
-		if f.ReturnType != nil && result.Kind == NullVal {
+		fnCtx := ctx.withFunction()
+		result := EvaluateBlock(f.Body, fnEnv, fnCtx)
+
+		if result.Signal == sigReturn {
+			ret := result.Value
+			checkType(f.Name+"() return", ret, f.ReturnType)
+			return ret
+		}
+
+		if f.ReturnType != nil {
 			want := resolveTypeName(f.ReturnType)
 			if want != "" && want != "null" && want != "void" {
-				panic(fmt.Sprintf("type mismatch for '%s() return': expected '%s' but got 'null'", f.Name, want))
+				panic(tunaError(fmt.Sprintf(
+					"function '%s' must return a '%s' but reached end without a 'serve'",
+					f.Name, want)))
 			}
 		}
-		return result
+		return RuntimeValue{Kind: NullVal}
 
 	default:
-		panic("cannot call non-function value")
+		panic(tunaError("cannot call non-function value"))
 	}
 }
 
 func EvaluatePostfixExpression(e parser.PostfixExpression, env *Environment, ctx execContext) RuntimeValue {
 	symbol, ok := e.Left.(parser.SymbolExpression)
 	if !ok {
-		panic("'++' and '--' can only be applied to a variable")
+		panic(tunaError("'++' and '--' can only be applied to a variable"))
 	}
-	current := env.Get(symbol.Value)
+	current := env.MustGet(symbol.Value)
 	if current.Kind != NumberVal {
-		panic(fmt.Sprintf("'%s' cannot be applied to type '%s'", e.Operator.Value, current.Kind))
+		panic(tunaError(fmt.Sprintf("'%s' cannot be applied to type '%s'", e.Operator.Value, current.Kind)))
 	}
 	val := current.Value.(float64)
 	switch e.Operator.Kind {
 	case lexer.PLUS_PLUS:
-		env.Update(symbol.Value, RuntimeValue{Kind: NumberVal, Value: val + 1})
+		env.MustUpdate(symbol.Value, RuntimeValue{Kind: NumberVal, Value: val + 1})
 	case lexer.MINUS_MINUS:
-		env.Update(symbol.Value, RuntimeValue{Kind: NumberVal, Value: val - 1})
+		env.MustUpdate(symbol.Value, RuntimeValue{Kind: NumberVal, Value: val - 1})
 	}
+
 	return current
 }
 
@@ -845,4 +917,8 @@ func isTruthy(val RuntimeValue) bool {
 	default:
 		return true
 	}
+}
+
+func tunaError(msg string) string {
+	return fmt.Sprintf("\033[31m[TunaScript Error]\033[0m %s", msg)
 }

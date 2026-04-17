@@ -37,7 +37,7 @@ func runFile(args []string) {
 
 	tokens := lexer.Lex(source)
 	tree := tunaparser.Parse(tokens)
-	interpreter.Interpret(tree, os.Args[1])
+	interpreter.Interpret(tree, filePath)
 }
 
 func main() {
