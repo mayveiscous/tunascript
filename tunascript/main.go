@@ -3,14 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
-	"test-go/src/interpreter"
-	"test-go/src/lexer"
-	tunaparser "test-go/src/parser"
+	"tunascript/src/lexer"
+	tunaparser "tunascript/src/parser"
+	"tunascript/src/interpreter"
 )
 
 func runFile(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: tunascript swim <file.tuna>")
+		fmt.Fprintln(os.Stderr, "Usage: tuna run <file.tuna>")
 		os.Exit(1)
 	}
 
@@ -64,16 +64,7 @@ func main() {
 func printUsage() {
 	fmt.Println(`TunaScript CLI
 Usage:
-  tunascript run <file.tuna>   Run a script
-  tunascript lex <file.tuna>    Print tokens (not implemented)
-  tunascript serve              Start REPL (not implemented)`)
+  tuna run <file.tuna>   Run a script
+  tuna lex <file.tuna>    Print tokens (not implemented)
+  tuna serve              Start REPL (not implemented)`)
 }
-
-/*
-
-case "serve":
-	runREPL(commandArgs)
-case "lex":
-	runLexer(commandArgs)
-
-*/

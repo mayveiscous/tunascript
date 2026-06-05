@@ -551,7 +551,6 @@ func parse_grouping_expression(p *parser) Expression {
 
 func parse_prefix_expression(p *parser) Expression {
 	operatorToken := p.advance()
-	// Fix: use unary_bp so that -a + b parses as (-a) + b, not -(a + b).
 	rhs := parse_expression(p, unary_bp)
 	return PrefixExpression{Operator: operatorToken, RightExpression: rhs}
 }
