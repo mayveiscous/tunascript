@@ -1,8 +1,8 @@
-# TunaScript
+# Tunascript
 
-TunaScript is a lightweight scripting language built to learn Go. It has no grand ambitions — but it turns out the ocean-themed syntax is surprisingly readable, even to people who don't write code.
+Tunascript is a lightweight scripting language built to learn Go. It has no grand ambitions — but it turns out the ocean-themed syntax is surprisingly readable, even to people who don't write code.
 
-TunaScript is licensed under the MIT License.
+Tunascript is licensed under the MIT License.
 
 ---
 
@@ -12,7 +12,7 @@ TunaScript is licensed under the MIT License.
 2. Copy the path to the executable, something like:
 
 ```
-C:/Program Files/TunaScript/bin/
+C:/Program Files/Tunascript/bin/
 ```
 
 3. Open **Edit Environment Variables** and navigate to **User Variables**
@@ -26,7 +26,7 @@ C:/Program Files/TunaScript/bin/
 Run any `.tuna` file with:
 
 ```bash
-tunascript run file.tuna
+tuna run file.tuna
 ```
 
 ---
@@ -56,7 +56,7 @@ swim greet(who: string): string
 shore
 
 bubble(add(3, 7))       ><> 10
-bubble(greet("tuna"))   ><> hello, tuna!
+bubble(greet("tuna"))   ><> "hello, tuna!"
 ```
 
 ### Conditionals
@@ -114,8 +114,8 @@ bubble(math.randInt(1, 10))    ><> random number between 1 and 10
 bubble(math.pi)                ><> 3.141592653589793
 
 ><> string
-bubble(string.upper("tuna"))              ><> TUNA
-bubble(string.replace("hi", "hi", "hey")) ><> hey
+bubble(string.upper("tuna"))              ><> "TUNA"
+bubble(string.replace("hi", "hi", "hey")) ><> "hey"
 bubble(string.split("a,b,c", ","))        ><> [a, b, c]
 bubble(string.startsWith("tuna", "tu"))   ><> true
 
@@ -129,7 +129,7 @@ catch nums = array.push([1, 2], 3) ><> [1, 2, 3]
 ><> globals
 bubble(len("tuna"))     ><> 4
 bubble(typeOf(42))      ><> number
-bubble(toString(3.14))  ><> 3.14
+bubble(toString(3.14))  ><> "3.14"
 bubble(toNumber("99"))  ><> 99
 ```
 
@@ -157,20 +157,3 @@ bubble(TAX_RATE)   ><> 0.08
 from "math_utils.tuna" catch square as sq
 bubble(sq(12))     ><> 144
 ```
-
----
-
-## VS Code Extension
-
-Syntax highlighting and snippets are available as a VS Code extension:
-**[TunaScript — VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=mayveiscous.tunascript)**
-
----
-
-## Issues
-
-If you find a bug, open an issue and include:
-
-- What happened
-- Expected behavior
-- Steps to reproduce

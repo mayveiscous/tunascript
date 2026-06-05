@@ -18,7 +18,7 @@ func runFile(args []string) {
 
 	bytes, err := os.ReadFile(filePath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "\033[31m[TunaScript Error]\033[0m Could not read file '%s': %v\n", filePath, err)
+		fmt.Fprintf(os.Stderr, "\033[31m[Tunascript Error]\033[0m Could not read file '%s': %v\n", filePath, err)
 		os.Exit(1)
 	}
 
@@ -29,7 +29,7 @@ func runFile(args []string) {
 			if tunaErr, ok := r.(*lexer.TunaError); ok {
 				fmt.Fprintln(os.Stderr, tunaErr.Error())
 			} else {
-				fmt.Fprintf(os.Stderr, "\n\033[31m[TunaScript Runtime Error]\033[0m %v\n", r)
+				fmt.Fprintf(os.Stderr, "\n\033[31m[Tunascript Runtime Error]\033[0m %v\n", r)
 			}
 			os.Exit(1)
 		}
