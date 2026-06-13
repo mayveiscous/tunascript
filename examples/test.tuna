@@ -1,11 +1,6 @@
-catch x: number = 1
-anchor maxIter = 45
+catch data: object = {
+   id: 0,
+   name: "tuna",
+}
 
-while x < 150
-   if x >= maxIter
-      break
-   shore
-
-   bubble(x)
-   x++
-shore
+bubble(data)
