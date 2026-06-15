@@ -1,0 +1,14 @@
+catch Armors = {
+   None: 0,
+   Leather: 10,
+   Chain: 15,
+   Steel: 25,
+}
+
+cast swim getReduction(a: string): number 
+   if Armors[a] == nil 
+   	serve 0
+   else
+      serve Armors[a]
+   shore
+shore

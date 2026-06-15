@@ -40,6 +40,7 @@ func (e PostfixExpression) expression()   {}
 func (e AssignmentExpression) expression() {}
 func (e CallExpression) expression()      {}
 func (e TypeofExpression) expression()    {}
+func (s SwapStatement) statement() {}
 
 func (s ExpressionStatement) statement()  {}
 func (s BlockStatement) statement()       {}

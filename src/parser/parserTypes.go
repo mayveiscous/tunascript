@@ -11,6 +11,11 @@ type Statement interface{ statement() }
 type Expression interface{ expression() }
 type AstType interface{ astType() }
 
+type SwapStatement struct {
+	Targets []Expression
+	Values  []Expression
+}
+
 type BindingPower int
 
 // Handler types

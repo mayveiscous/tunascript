@@ -1,2 +1,0 @@
-from "another" catch add 
-cast catch test: number = add(5, 4)

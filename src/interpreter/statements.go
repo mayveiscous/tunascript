@@ -102,7 +102,7 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 			result = r
 		}
 		return result
-
+		
 	case tunaparser.FunctionDecStatement:
 		closureEnv := NewEnvironment(env)
 		fn := RuntimeValue{
@@ -118,7 +118,7 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 		closureEnv.Set(s.Name, fn)
 
 		if ctx.builtinNames[s.Name] {
-			fmt.Printf("\033[33m[TunaScript Warning]\033[0m overwriting builtin '%s'\n", s.Name)
+			fmt.Printf("\033[33m[Tunascript Warning]\033[0m overwriting builtin '%s'\n", s.Name)
 		}
 		env.Set(s.Name, fn)
 		return valueResult(fn)
@@ -140,7 +140,19 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 			env.Set(item.Alias, val)
 		}
 		return NullResult
-
+	case tunaparser.SwapStatement:
+		vals := make([]RuntimeValue, len(s.Values))
+		for i, v := range s.Values {
+			 vals[i] = EvaluateExpression(v, env, ctx)
+		}
+		for i, target := range s.Targets {
+			 sym, ok := target.(tunaparser.SymbolExpression)
+			 if !ok {
+				  panic(TunaError("swap targets must be simple variables"))
+			 }
+			 env.MustUpdate(sym.Value, vals[i])
+		}
+		return NullResult
 	default:
 		panic(TunaError(fmt.Sprintf("unknown statement type: %T", stmt)))
 	}

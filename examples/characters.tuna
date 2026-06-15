@@ -1,0 +1,22 @@
+cast catch Player = {
+   name: "Player",
+
+   health: 100,
+   speed: 3,
+
+   dmgMin: 10,
+   dmgMax: 30,
+   armor: "None",
+   weapon: "None",
+}
+
+cast catch Goblin = {
+   name: "Goblin",
+   health: 30,
+   speed: 1,
+
+   dmgMin: 10,
+   dmgMax: 15,
+   armor: "None",
+   weapon: "None",
+}

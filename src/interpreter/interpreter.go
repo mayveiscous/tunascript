@@ -26,7 +26,7 @@ func valueResult(v RuntimeValue) EvalResult {
 }
 
 func TunaError(msg string) string {
-	return fmt.Sprintf("\033[31m[TunaScript Error]\033[0m %s", msg)
+	return fmt.Sprintf("\033[31m[Tunascript Error]\033[0m %s", msg)
 }
 
 func resolveTypeName(t tunaparser.AstType) string {

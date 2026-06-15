@@ -1,0 +1,47 @@
+from "armorShop.tuna" catch getReduction
+
+catch debug = false
+
+swim attack(a: object, b: object): void
+   catch dmgRoll = math.randInt(a.dmgMin, a.dmgMax)
+   catch reduction = getReduction(b.armor)
+   catch final = dmgRoll - (dmgRoll * reduction / 100)
+   b.health = math.max(0, b.health - final)
+
+   if debug
+   	bubble(b.name, " took ", final, " damage!")
+   shore
+shore
+
+cast swim fight(a: object, b: object, db: bool): object
+   debug = db
+   catch firstAttacker = a
+   catch secondAttacker = b
+
+   if debug 
+   	bubble(firstAttacker.name, " goes first!")
+   shore
+
+   if secondAttacker.speed > firstAttacker.speed 
+   	catch temp = firstAttacker
+      firstAttacker = secondAttacker
+      secondAttacker = temp
+   shore
+
+   while a.health > 0 and b.health > 0 
+   	attack(firstAttacker, secondAttacker)
+   	catch temp = firstAttacker
+      firstAttacker = secondAttacker
+      secondAttacker = temp
+   shore
+
+   catch winner = nil
+   
+   if a.health == 0
+   	winner = b
+   else
+      winner = a
+   shore
+
+   serve winner
+shore

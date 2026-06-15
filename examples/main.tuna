@@ -1,0 +1,10 @@
+><> imports
+from "characters.tuna" catch Player, Goblin
+from "combat.tuna" catch fight
+
+swim main(): void
+   catch winner = fight(Player, Goblin, true)
+   bubble(winner.name, " won!")
+shore
+
+main()

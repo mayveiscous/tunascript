@@ -7,6 +7,13 @@ import (
 )
 
 func parseStatement(p *parser) Statement {
+	if p.currentTokenKind() == lexer.IDENT {
+		if stmt, ok := tryParseSwapStatement(p); ok {
+			 consumeSemicolon(p)
+			 return stmt
+		}
+  }
+
 	statementFn, exists := statementLu[p.currentTokenKind()]
 	var stmt Statement
 	if exists {
@@ -16,6 +23,38 @@ func parseStatement(p *parser) Statement {
 	}
 	consumeSemicolon(p)
 	return stmt
+}
+
+func tryParseSwapStatement(p *parser) (Statement, bool) {
+	if p.pos+1 >= len(p.tokens) || p.tokens[p.pos+1].Kind != lexer.COMMA {
+		 return nil, false
+	}
+
+	targets := []Expression{}
+	targets = append(targets, SymbolExpression{Value: p.advance().Value})
+	for p.currentTokenKind() == lexer.COMMA {
+		 p.advance()
+		 targets = append(targets, parseExpression(p, assignmentBp))
+	}
+
+	if p.currentTokenKind() != lexer.ASSIGNMENT {
+		 panic(p.parseError("expected '=' after swap targets"))
+	}
+	p.advance()
+
+	values := []Expression{}
+	values = append(values, parseExpression(p, assignmentBp))
+	for p.currentTokenKind() == lexer.COMMA {
+		 p.advance()
+		 values = append(values, parseExpression(p, assignmentBp))
+	}
+
+	if len(targets) != len(values) {
+		 panic(p.parseError(fmt.Sprintf(
+			  "swap mismatch: %d targets but %d values", len(targets), len(values))))
+	}
+
+	return SwapStatement{Targets: targets, Values: values}, true
 }
 
 func parseBreakStatement(p *parser) Statement {

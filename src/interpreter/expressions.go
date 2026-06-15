@@ -29,32 +29,39 @@ func EvaluateExpression(expr tunaparser.Expression, env *Environment, ctx ExecCo
 	case tunaparser.IndexExpression:
 		left := EvaluateExpression(e.Left, env, ctx)
 		index := EvaluateExpression(e.Index, env, ctx)
-		if index.Kind != NumberVal {
-			panic(TunaError("index must be a number"))
-		}
-		i := int(index.Value.(float64))
-		if left.Kind == ArrayVal {
-			arr := left.Value.([]RuntimeValue)
-			if i < 0 {
-				panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
-			}
-			if i >= len(arr) {
-				panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr))))
-			}
-			return arr[i]
-		}
-		if left.Kind == StringVal {
-			runes := []rune(left.Value.(string))
-			if i < 0 {
-				panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
-			}
-			if i >= len(runes) {
-				panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(runes))))
-			}
-			return RuntimeValue{Kind: StringVal, Value: string(runes[i])}
-		}
-		panic(TunaError(fmt.Sprintf("cannot index into type '%s'", left.Kind)))
+  
+		if left.Kind == ArrayVal || left.Kind == StringVal {
+			 if index.Kind != NumberVal {
+				  panic(TunaError("index must be a number"))
+			 }
+			 i := int(index.Value.(float64))
+			 if left.Kind == ArrayVal {
+				  arr := left.Value.([]RuntimeValue)
+				  if i < 0 { panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i))) }
+				  if i >= len(arr) { panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr)))) }
+				  return arr[i]
+			 }
 
+			 runes := []rune(left.Value.(string))
+			 if i < 0 { panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i))) }
+			 if i >= len(runes) { panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(runes)))) }
+			 return RuntimeValue{Kind: StringVal, Value: string(runes[i])}
+		}
+  
+		if left.Kind == ObjectVal {
+			 if index.Kind != StringVal {
+				  panic(TunaError("object key must be a string"))
+			 }
+			 props := left.Value.(map[string]RuntimeValue)
+			 key := index.Value.(string)
+			 val, ok := props[key]
+			 if !ok {
+				  panic(TunaError(fmt.Sprintf("property '%s' does not exist on object", key)))
+			 }
+			 return val
+		}
+  
+		panic(TunaError(fmt.Sprintf("cannot index into type '%s'", left.Kind)))
 	case tunaparser.ArrayLiteral:
 		elements := make([]RuntimeValue, len(e.Elements))
 		for i, el := range e.Elements {
@@ -212,6 +219,13 @@ func EvaluateBinaryExpression(e tunaparser.BinaryExpression, env *Environment, c
 		}
 	}
 
+	if e.Operator.Kind == lexer.EQUALS {
+		return RuntimeValue{Kind: BoolVal, Value: left.Kind == right.Kind}
+  }
+  if e.Operator.Kind == lexer.NOT_EQUALS {
+		return RuntimeValue{Kind: BoolVal, Value: left.Kind != right.Kind}
+  }
+
 	panic(TunaError(fmt.Sprintf("operator '%s' cannot be applied to types '%s' and '%s'",
 		e.Operator.Value, left.Kind, right.Kind)))
 }
@@ -273,23 +287,47 @@ func EvaluateAssignmentExpression(e tunaparser.AssignmentExpression, env *Enviro
 	}
 
 	if idx, ok := e.Assignee.(tunaparser.IndexExpression); ok {
-		arrVal := EvaluateExpression(idx.Left, env, ctx)
-		if arrVal.Kind != ArrayVal {
-			panic(TunaError(fmt.Sprintf("cannot index-assign into type '%s'", arrVal.Kind)))
-		}
+		left := EvaluateExpression(idx.Left, env, ctx)
 		indexVal := EvaluateExpression(idx.Index, env, ctx)
+
+		if left.Kind == ObjectVal {
+			if indexVal.Kind != StringVal {
+				panic(TunaError("object key must be a string"))
+			}
+			props := left.Value.(map[string]RuntimeValue)
+			key := indexVal.Value.(string)
+			rhs := EvaluateExpression(e.Value, env, ctx)
+			var newVal RuntimeValue
+			if e.Operator.Kind == lexer.ASSIGNMENT {
+				newVal = rhs
+			} else {
+				current, exists := props[key]
+				if !exists {
+					panic(TunaError(fmt.Sprintf("property '%s' does not exist on object", key)))
+				}
+				newVal = applyCompoundOp(e.Operator, current, rhs)
+			}
+			props[key] = newVal
+			if sym, ok2 := idx.Left.(tunaparser.SymbolExpression); ok2 {
+				env.MustUpdate(sym.Value, RuntimeValue{Kind: ObjectVal, Value: props})
+			}
+			return newVal
+		}
+
+		if left.Kind != ArrayVal {
+			panic(TunaError(fmt.Sprintf("cannot index-assign into type '%s'", left.Kind)))
+		}
 		if indexVal.Kind != NumberVal {
 			panic(TunaError("index must be a number"))
 		}
 		i := int(indexVal.Value.(float64))
-		arr := arrVal.Value.([]RuntimeValue)
+		arr := left.Value.([]RuntimeValue)
 		if i < 0 {
 			panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
 		}
 		if i >= len(arr) {
 			panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr))))
 		}
-
 		rhs := EvaluateExpression(e.Value, env, ctx)
 		var newVal RuntimeValue
 		if e.Operator.Kind == lexer.ASSIGNMENT {
@@ -297,7 +335,6 @@ func EvaluateAssignmentExpression(e tunaparser.AssignmentExpression, env *Enviro
 		} else {
 			newVal = applyCompoundOp(e.Operator, arr[i], rhs)
 		}
-
 		if sym, ok2 := idx.Left.(tunaparser.SymbolExpression); ok2 {
 			if declType := env.GetDeclaredType(sym.Value); declType != nil {
 				if arrType, ok3 := declType.(tunaparser.ArrayType); ok3 {
@@ -332,7 +369,7 @@ func EvaluateAssignmentExpression(e tunaparser.AssignmentExpression, env *Enviro
 	}
 
 	if ctx.builtinNames[symbol.Value] {
-		fmt.Printf("\033[33m[TunaScript Warning]\033[0m overwriting builtin '%s'\n", symbol.Value)
+		fmt.Printf("\033[33m[Tunascript Warning]\033[0m overwriting builtin '%s'\n", symbol.Value)
 	}
 
 	env.MustUpdate(symbol.Value, newVal)

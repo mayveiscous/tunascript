@@ -10,7 +10,7 @@ import (
 
 func runFile(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: tuna run <file.tuna>")
+		fmt.Fprintln(os.Stderr, "Usage: tuna <file.tuna>")
 		os.Exit(1)
 	}
 
@@ -49,22 +49,18 @@ func main() {
 	}
 
 	command := args[0]
-	commandArgs := args[1:]
 
 	switch command {
 	case "run":
-		runFile(commandArgs)
+		runFile(args[1:])
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
-		printUsage()
-		os.Exit(1)
+		runFile(args)
 	}
 }
 
 func printUsage() {
-	fmt.Println(`TunaScript CLI
+	fmt.Println(`Tunascript CLI
 Usage:
-  tuna run <file.tuna>   Run a script
-  tuna lex <file.tuna>    Print tokens (not implemented)
+  tuna <file.tuna>   Run a script
   tuna serve              Start REPL (not implemented)`)
 }

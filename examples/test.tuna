@@ -1,6 +1,0 @@
-catch data: object = {
-   id: 0,
-   name: "tuna",
-}
-
-bubble(data)
