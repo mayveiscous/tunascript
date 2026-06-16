@@ -27,30 +27,42 @@ func EvaluateExpression(expr tunaparser.Expression, env *Environment, ctx ExecCo
 		return RuntimeValue{Kind: BoolVal, Value: e.Value}
 
 	case tunaparser.IndexExpression:
-		left := EvaluateExpression(e.Left, env, ctx)
+		left  := EvaluateExpression(e.Left, env, ctx)
 		index := EvaluateExpression(e.Index, env, ctx)
   
-		if left.Kind == ArrayVal || left.Kind == StringVal {
+		if left.Kind == ArrayVal {
 			 if index.Kind != NumberVal {
-				  panic(TunaError("index must be a number"))
+				  panic(TunaError("array index must be a number"))
 			 }
 			 i := int(index.Value.(float64))
-			 if left.Kind == ArrayVal {
-				  arr := left.Value.([]RuntimeValue)
-				  if i < 0 { panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i))) }
-				  if i >= len(arr) { panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr)))) }
-				  return arr[i]
+			 arr := left.Value.([]RuntimeValue)
+			 if i < 0 {
+				  panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
 			 }
-
+			 if i >= len(arr) {
+				  panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr))))
+			 }
+			 return arr[i]
+		}
+  
+		if left.Kind == StringVal {
+			 if index.Kind != NumberVal {
+				  panic(TunaError("string index must be a number"))
+			 }
+			 i := int(index.Value.(float64))
 			 runes := []rune(left.Value.(string))
-			 if i < 0 { panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i))) }
-			 if i >= len(runes) { panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(runes)))) }
+			 if i < 0 {
+				  panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
+			 }
+			 if i >= len(runes) {
+				  panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(runes))))
+			 }
 			 return RuntimeValue{Kind: StringVal, Value: string(runes[i])}
 		}
   
 		if left.Kind == ObjectVal {
 			 if index.Kind != StringVal {
-				  panic(TunaError("object key must be a string"))
+				  panic(TunaError("object index must be a string"))
 			 }
 			 props := left.Value.(map[string]RuntimeValue)
 			 key := index.Value.(string)
@@ -391,26 +403,48 @@ func EvaluateCallExpression(e tunaparser.CallExpression, env *Environment, ctx E
 		return f.Call(args)
 
 	case FunctionValue:
-		if len(e.Arguments) != len(f.Parameters) {
-			panic(TunaError(fmt.Sprintf(
-				"function '%s' expects %d argument(s) but got %d",
-				f.Name, len(f.Parameters), len(e.Arguments))))
+		hasVariadic := len(f.Parameters) > 0 && f.Parameters[len(f.Parameters)-1].IsVariadic
+		fixedCount  := len(f.Parameters)
+		if hasVariadic {
+			 fixedCount--
 		}
-
+  
+		if !hasVariadic && len(e.Arguments) != len(f.Parameters) {
+			 panic(TunaError(fmt.Sprintf(
+				  "function '%s' expects %d argument(s) but got %d",
+				  f.Name, len(f.Parameters), len(e.Arguments))))
+		}
+		if hasVariadic && len(e.Arguments) < fixedCount {
+			 panic(TunaError(fmt.Sprintf(
+				  "function '%s' expects at least %d argument(s) but got %d",
+				  f.Name, fixedCount, len(e.Arguments))))
+		}
+  
 		declEnv := f.Env
 		if declEnv == nil {
-			declEnv = env
+			 declEnv = env
 		}
 		fnEnv := NewEnvironment(declEnv)
-		for i, param := range f.Parameters {
-			argVal := EvaluateExpression(e.Arguments[i], env, ctx)
-			if param.Type != nil {
-				checkType(param.Name, argVal, param.Type)
-			}
-			fnEnv.SetTyped(param.Name, argVal, param.Type)
-		}
 
-		fnCtx := ctx.withFunction()
+		for i := 0; i < fixedCount; i++ {
+			 param  := f.Parameters[i]
+			 argVal := EvaluateExpression(e.Arguments[i], env, ctx)
+			 if param.Type != nil {
+				  checkType(param.Name, argVal, param.Type)
+			 }
+			 fnEnv.SetTyped(param.Name, argVal, param.Type)
+		}
+  
+		if hasVariadic {
+			 varParam := f.Parameters[len(f.Parameters)-1]
+			 rest := make([]RuntimeValue, len(e.Arguments)-fixedCount)
+			 for i, arg := range e.Arguments[fixedCount:] {
+				  rest[i] = EvaluateExpression(arg, env, ctx)
+			 }
+			 fnEnv.Set(varParam.Name, RuntimeValue{Kind: ArrayVal, Value: rest})
+		}
+  
+		fnCtx  := ctx.withFunction()
 		result := EvaluateBlock(f.Body, fnEnv, fnCtx)
 
 		if result.Signal == sigReturn {

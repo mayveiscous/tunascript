@@ -134,13 +134,21 @@ func parseFunctionParameters(p *parser) []FunctionParameter {
 	params := []FunctionParameter{}
 	p.expect(lexer.OPEN_PAREN)
 	for p.hasTokens() && p.currentTokenKind() != lexer.CLOSE_PAREN {
-		name := p.expectError(lexer.IDENT, p.parseError("expected parameter name")).Value
-		p.expectError(lexer.COLON, p.parseError(fmt.Sprintf("expected ':' after parameter '%s'", name)))
-		paramType := parseType(p, defaultBp)
-		params = append(params, FunctionParameter{Name: name, Type: paramType})
-		if p.currentTokenKind() == lexer.COMMA {
-			p.advance()
-		}
+		 isVariadic := false
+		 if p.currentTokenKind() == lexer.ELLIPSIS {
+			  isVariadic = true
+			  p.advance()
+		 }
+		 name := p.expectError(lexer.IDENT, p.parseError("expected parameter name")).Value
+		 p.expectError(lexer.COLON, p.parseError(fmt.Sprintf("expected ':' after parameter '%s'", name)))
+		 paramType := parseType(p, defaultBp)
+		 params = append(params, FunctionParameter{Name: name, Type: paramType, IsVariadic: isVariadic})
+		 if isVariadic {
+			  break
+		 }
+		 if p.currentTokenKind() == lexer.COMMA {
+			  p.advance()
+		 }
 	}
 	p.expect(lexer.CLOSE_PAREN)
 	return params
@@ -174,10 +182,10 @@ func parseVarDeclarationStatement(p *parser) Statement {
 		explicitType = parseType(p, defaultBp)
 	}
 
-	if p.currentTokenKind() == lexer.ASSIGNMENT {
+	if p.currentTokenKind() == lexer.ASSIGNMENT || p.currentTokenKind() == lexer.AS {
 		p.advance()
 		assignedValue = parseExpression(p, assignmentBp)
-	} else if explicitType == nil {
+  	} else if explicitType == nil {
 		panic(lexer.NewError(keyword.Line, keyword.Column,
 			fmt.Sprintf("variable '%s' must have a type annotation or an assigned value", varName)))
 	}
@@ -193,6 +201,25 @@ func parseVarDeclarationStatement(p *parser) Statement {
 		AssignedValue: assignedValue,
 		ExplicitType:  explicitType,
 	}
+}
+
+func parseTryBody(p *parser) BlockStatement {
+	body := []Statement{}
+	for p.hasTokens() &&
+		 p.currentTokenKind() != lexer.SHORE &&
+		 p.currentTokenKind() != lexer.HOOK {
+		 body = append(body, parseStatement(p))
+	}
+	return BlockStatement{Body: body}
+}
+
+func parseTryStatement(p *parser) Statement {
+	p.advance()
+	tryBody := parseTryBody(p)
+	p.expectError(lexer.HOOK, p.parseError("expected 'hook' after try block"))
+	errName := p.expectError(lexer.IDENT, p.parseError("expected error variable name after 'hook'")).Value
+	hookBody := parseBody(p)
+	return TryStatement{Body: tryBody, ErrName: errName, Hook: hookBody}
 }
 
 func parseExpression(p *parser, bp BindingPower) Expression {

@@ -153,6 +153,28 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 			 env.MustUpdate(sym.Value, vals[i])
 		}
 		return NullResult
+	case tunaparser.TryStatement:
+		var result EvalResult
+		func() {
+			 defer func() {
+				  if r := recover(); r != nil {
+						var msg string
+						switch v := r.(type) {
+						case string:
+							 msg = v
+						case error:
+							 msg = v.Error()
+						default:
+							 msg = fmt.Sprintf("%v", v)
+						}
+						hookEnv := NewEnvironment(env)
+						hookEnv.Set(s.ErrName, RuntimeValue{Kind: StringVal, Value: msg})
+						result = EvaluateBlock(s.Hook, hookEnv, ctx)
+				  }
+			 }()
+			 result = EvaluateBlock(s.Body, NewEnvironment(env), ctx)
+		}()
+		return result
 	default:
 		panic(TunaError(fmt.Sprintf("unknown statement type: %T", stmt)))
 	}

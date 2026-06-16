@@ -34,5 +34,3 @@ swim main(): void
 	shore
 	tui.println("")
 shore
-
-main()

@@ -208,6 +208,45 @@ func registerBuiltins(env *Environment) {
 			}
 			return RuntimeValue{Kind: StringVal, Value: strings.Repeat(args[0].Value.(string), n)}
 		}}},
+		"slice": {Kind: FunctionVal, Value: NativeFunction{Name: "slice", Call: func(args []RuntimeValue) RuntimeValue {
+			assertArgCount("string.slice", args, 3)
+			assertKind("string.slice", args[0], StringVal)
+			assertKind("string.slice", args[1], NumberVal)
+			assertKind("string.slice", args[2], NumberVal)
+			runes := []rune(args[0].Value.(string))
+			start := int(args[1].Value.(float64))
+			end   := int(args[2].Value.(float64))
+			if start < 0 || end > len(runes) || start > end {
+				 panic(TunaError(fmt.Sprintf(
+					  "string.slice() index out of bounds: [%d:%d] on string of length %d",
+					  start, end, len(runes))))
+			}
+			return RuntimeValue{Kind: StringVal, Value: string(runes[start:end])}
+	  }}},
+	  
+	  "indexOf": {Kind: FunctionVal, Value: NativeFunction{Name: "indexOf", Call: func(args []RuntimeValue) RuntimeValue {
+			assertArgCount("string.indexOf", args, 2)
+			assertKind("string.indexOf", args[0], StringVal)
+			assertKind("string.indexOf", args[1], StringVal)
+			idx := strings.Index(args[0].Value.(string), args[1].Value.(string))
+			return RuntimeValue{Kind: NumberVal, Value: float64(idx)}
+	  }}},
+	  
+	  "charCode": {Kind: FunctionVal, Value: NativeFunction{Name: "charCode", Call: func(args []RuntimeValue) RuntimeValue {
+			assertArgCount("string.charCode", args, 1)
+			assertKind("string.charCode", args[0], StringVal)
+			runes := []rune(args[0].Value.(string))
+			if len(runes) == 0 {
+				 panic(TunaError("string.charCode() cannot get char code of empty string"))
+			}
+			return RuntimeValue{Kind: NumberVal, Value: float64(runes[0])}
+	  }}},
+	  
+	  "fromCharCode": {Kind: FunctionVal, Value: NativeFunction{Name: "fromCharCode", Call: func(args []RuntimeValue) RuntimeValue {
+			assertArgCount("string.fromCharCode", args, 1)
+			assertKind("string.fromCharCode", args[0], NumberVal)
+			return RuntimeValue{Kind: StringVal, Value: string(rune(int(args[0].Value.(float64))))}
+	  }}},
 	}
 	env.Set("string", RuntimeValue{Kind: ObjectVal, Value: stringNS})
 
@@ -398,7 +437,6 @@ func registerBuiltins(env *Environment) {
 			 max     := args[1].Value.(float64)
 			 width   := int(args[2].Value.(float64))
 			 if max <= 0 || math.IsInf(max, 1) {
-				  // infinite health — show a full bar in a different color
 				  return RuntimeValue{Kind: StringVal, Value: "\033[36m" + strings.Repeat("█", width) + "\033[0m"}
 			 }
 			 filled := int(math.Round((current / max) * float64(width)))
@@ -406,8 +444,8 @@ func registerBuiltins(env *Environment) {
 			 if filled > width { filled = width }
 			 empty := width - filled
 			 color := "\033[32m" // green
-			 if current/max < 0.5 { color = "\033[33m" } // yellow
-			 if current/max < 0.25 { color = "\033[31m" } // red
+			 if current/max < 0.5 { color = "\033[33m" }
+			 if current/max < 0.25 { color = "\033[31m" }
 			 return RuntimeValue{Kind: StringVal,
 				  Value: color + strings.Repeat("█", filled) + "\033[2m" + strings.Repeat("░", empty) + "\033[0m"}
 		}}},
@@ -461,6 +499,94 @@ func registerBuiltins(env *Environment) {
 		}}},
   }
   env.Set("tui", RuntimeValue{Kind: ObjectVal, Value: tuiNS})
+
+  osNS := map[string]RuntimeValue{
+	"read": {Kind: FunctionVal, Value: NativeFunction{Name: "read", Call: func(args []RuntimeValue) RuntimeValue {
+		 assertArgCount("os.read", args, 1)
+		 assertKind("os.read", args[0], StringVal)
+		 data, err := os.ReadFile(args[0].Value.(string))
+		 if err != nil {
+			  panic(TunaError(fmt.Sprintf("os.read() could not read '%s': %s", args[0].Value.(string), err)))
+		 }
+		 return RuntimeValue{Kind: StringVal, Value: string(data)}
+	}}},
+
+	"write": {Kind: FunctionVal, Value: NativeFunction{Name: "write", Call: func(args []RuntimeValue) RuntimeValue {
+		 assertArgCount("os.write", args, 2)
+		 assertKind("os.write", args[0], StringVal)
+		 assertKind("os.write", args[1], StringVal)
+		 err := os.WriteFile(args[0].Value.(string), []byte(args[1].Value.(string)), 0644)
+		 if err != nil {
+			  panic(TunaError(fmt.Sprintf("os.write() could not write '%s': %s", args[0].Value.(string), err)))
+		 }
+		 return RuntimeValue{Kind: NullVal}
+	}}},
+
+	"open": {Kind: FunctionVal, Value: NativeFunction{Name: "open", Call: func(args []RuntimeValue) RuntimeValue {
+		 assertArgCount("os.open", args, 1)
+		 assertKind("os.open", args[0], StringVal)
+		 f, err := os.OpenFile(args[0].Value.(string), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+		 if err != nil {
+			  panic(TunaError(fmt.Sprintf("os.open() could not open '%s': %s", args[0].Value.(string), err)))
+		 }
+
+		 fileObj := map[string]RuntimeValue{
+			  "path":   {Kind: StringVal, Value: args[0].Value.(string)},
+			  "__fd":   {Kind: FunctionVal, Value: NativeFunction{Name: "__fd", Call: func(_ []RuntimeValue) RuntimeValue {
+					_ = f
+					return RuntimeValue{Kind: NullVal}
+			  }}},
+		 }
+		 fileObj["__fd"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
+			  Name: "__fd",
+			  Call: func(writeArgs []RuntimeValue) RuntimeValue {
+					if len(writeArgs) == 0 {
+						 return RuntimeValue{Kind: NullVal}
+					}
+					assertKind("file.write", writeArgs[0], StringVal)
+					_, werr := f.WriteString(writeArgs[0].Value.(string))
+					if werr != nil {
+						 panic(TunaError(fmt.Sprintf("file write error: %s", werr)))
+					}
+					return RuntimeValue{Kind: NullVal}
+			  },
+		 }}
+		 fileObj["__close"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
+			  Name: "__close",
+			  Call: func(_ []RuntimeValue) RuntimeValue {
+					f.Close()
+					return RuntimeValue{Kind: NullVal}
+			  },
+		 }}
+		 return RuntimeValue{Kind: ObjectVal, Value: fileObj}
+	}}},
+
+	"close": {Kind: FunctionVal, Value: NativeFunction{Name: "close", Call: func(args []RuntimeValue) RuntimeValue {
+		 assertArgCount("os.close", args, 1)
+		 assertKind("os.close", args[0], ObjectVal)
+		 props := args[0].Value.(map[string]RuntimeValue)
+		 closer, ok := props["__close"]
+		 if !ok {
+			  panic(TunaError("os.close() argument is not a file handle"))
+		 }
+		 closer.Value.(NativeFunction).Call([]RuntimeValue{})
+		 return RuntimeValue{Kind: NullVal}
+	}}},
+
+	"clock": {Kind: FunctionVal, Value: NativeFunction{Name: "clock", Call: func(args []RuntimeValue) RuntimeValue {
+		 return RuntimeValue{Kind: NumberVal, Value: float64(time.Now().UnixMilli())}
+	}}},
+
+	"args": {Kind: FunctionVal, Value: NativeFunction{Name: "args", Call: func(args []RuntimeValue) RuntimeValue {
+		 osArgs := os.Args
+		 result := make([]RuntimeValue, len(osArgs))
+		 for i, a := range osArgs {
+			  result[i] = RuntimeValue{Kind: StringVal, Value: a}
+		 }
+		 return RuntimeValue{Kind: ArrayVal, Value: result}
+	}}},
+	}
+	env.Set("os", RuntimeValue{Kind: ObjectVal, Value: osNS})
 }
 
 func assertArgCount(name string, args []RuntimeValue, n int) {

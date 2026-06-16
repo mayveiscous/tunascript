@@ -128,6 +128,7 @@ func init() {
 	statementReg(lexer.CONTINUE, parseContinueStatement)
 	statementReg(lexer.FROM,     parseImportStatement)
 	statementReg(lexer.CAST,     parseCastStatement)
+	statementReg(lexer.TRY, parseTryStatement)
 
 	typeNudReg(lexer.IDENT,        parseSymbolType)
 	typeNudReg(lexer.OPEN_BRACKET, parseArrayType)

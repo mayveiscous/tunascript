@@ -46,6 +46,7 @@ const (
 	COLON
 	COMMA
 	QUESTION
+	ELLIPSIS
 
 	NULL
 
@@ -76,6 +77,8 @@ const (
 	BREAK
 	CONTINUE
 	CAST
+	TRY
+	HOOK
 )
 
 var reserved_lu = map[string]TokenKind{
@@ -103,6 +106,8 @@ var reserved_lu = map[string]TokenKind{
 	"continue": CONTINUE,
 	"cast": CAST,
 	"as": AS,
+	"try":  TRY,
+	"hook": HOOK,
 }
 
 var tokenKindStrings = map[TokenKind]string{
@@ -157,12 +162,16 @@ var tokenKindStrings = map[TokenKind]string{
 	TYPEOF:        "typeof",
 	IN:            "in",
 	CAST:          "cast",
+	ELLIPSIS:      "...",
+	TRY:  			"try",
+	HOOK: 			"hook",
 }
 
 var patterns = []regexPattern{
 	// Skipped
 	{regexp.MustCompile(`\s+`), skipWhitespace},
 	{regexp.MustCompile(`><>[^\n]*`), commentHandler},
+	{regexp.MustCompile(`(?s)></.*?/>`), blockCommentHandler},
 
 	// Literals
 	{regexp.MustCompile(`"(?:[^"\\]|\\.)*"`), stringHandler},
@@ -180,6 +189,9 @@ var patterns = []regexPattern{
 	{regexp.MustCompile(`!=`),   defaultHandler(NOT_EQUALS, "!=")},
 	{regexp.MustCompile(`<=`),   defaultHandler(LESS_EQUALS, "<=")},
 	{regexp.MustCompile(`>=`),   defaultHandler(GREATER_EQUALS, ">=")},
+	
+	// ellipsis for varidic functions
+	{regexp.MustCompile(`\.\.\.`), defaultHandler(ELLIPSIS, "...")},
 
 	// Single-char operators
 	{regexp.MustCompile(`=`),  defaultHandler(ASSIGNMENT, "=")},

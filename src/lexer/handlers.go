@@ -24,6 +24,11 @@ func commentHandler(lex *lexer, regex *regexp.Regexp) {
 	lex.advanceN(len(match))
 }
 
+func blockCommentHandler(lex *lexer, regex *regexp.Regexp) {
+	match := regex.FindString(lex.remainder())
+	lex.advanceN(len(match))
+}
+
 func symbolHandler(lex *lexer, regex *regexp.Regexp) {
 	value := regex.FindString(lex.remainder())
 	line, col := lex.line, lex.col

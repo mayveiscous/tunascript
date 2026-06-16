@@ -1,0 +1,5 @@
+from "characters.tuna" catch Player
+
+swim main(): void
+	
+shore

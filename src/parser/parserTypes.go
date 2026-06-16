@@ -96,8 +96,9 @@ type VariableDecStatement struct {
 }
 
 type FunctionParameter struct {
-	Name string
-	Type AstType
+	Name       string
+	Type       AstType
+	IsVariadic bool
 }
 
 type FunctionDecStatement struct {
@@ -129,6 +130,11 @@ type ImportItem struct {
 	Alias string
 }
 
+type TryStatement struct {
+	Body    BlockStatement
+	ErrName string
+	Hook    BlockStatement
+}
 
 type ImportStatement struct {
 	Path  string

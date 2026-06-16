@@ -111,24 +111,31 @@ func Interpret(block tunaparser.BlockStatement, filePath string) RuntimeValue {
 
 	builtinNames := map[string]bool{}
 	for k := range env.variables {
-		builtinNames[k] = true
+		 builtinNames[k] = true
 	}
 
 	absPath, _ := filepath.Abs(filePath)
 	ctx := ExecContext{
-		filePath:    absPath,
-		moduleCache: map[string]map[string]RuntimeValue{},
-		builtinNames: builtinNames,
+		 filePath:     absPath,
+		 moduleCache:  map[string]map[string]RuntimeValue{},
+		 builtinNames: builtinNames,
 	}
 
-	result := NullResult
 	for _, stmt := range block.Body {
-		result = EvaluateStatement(stmt, env, ctx)
-		if result.Signal != sigNone {
-			break
-		}
+		 result := EvaluateStatement(stmt, env, ctx)
+		 if result.Signal != sigNone {
+			  break
+		 }
 	}
-	return result.Value
+
+	if mainFn, ok := env.Get("main"); ok && mainFn.Kind == FunctionVal {
+		 if fn, ok := mainFn.Value.(FunctionValue); ok && len(fn.Parameters) == 0 {
+			  fnEnv := NewEnvironment(fn.Env)
+			  EvaluateBlock(fn.Body, fnEnv, ctx.withFunction())
+		 }
+	}
+
+	return RuntimeValue{Kind: NullVal}
 }
 
 func EvaluateBlock(block tunaparser.BlockStatement, env *Environment, ctx ExecContext) EvalResult {
