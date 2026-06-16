@@ -1,69 +1,47 @@
 # Tunascript
 
-Tunascript is a lightweight scripting language built to learn Go. It has no grand ambitions — but it turns out the ocean-themed syntax is surprisingly readable, even to people who don't write code.
+A small scripting language built in Go. Ocean-themed syntax, no dependencies, surprisingly readable.
 
-Tunascript is licensed under the MIT License.
+Licensed under MIT.
 
 ---
 
 ## Installation
 
-1. Download the latest release
-2. Copy the path to the executable, something like:
-
-```
-C:/Program Files/Tunascript/bin/
-```
-
-3. Open **Edit Environment Variables** and navigate to **User Variables**
-4. Edit your `Path` variable and add the path above
-5. Save and open a new terminal
-
----
-
-## Usage
-
-Run any `.tuna` file with:
+1. Download the latest release and copy the path to the executable, e.g. `C:/Program Files/Tunascript/bin/`
+2. Add that path to your `Path` under **Edit Environment Variables → User Variables**
+3. Open a new terminal and run any `.tuna` file:
 
 ```bash
 tuna run file.tuna
 ```
 
----
+or 
 
-## Syntax Overview
-
-### Variables & Constants
-
-```tuna
-catch name: string = "tuna"
-catch age: number = 3
-anchor MAX: number = 100    ><> anchor = constant, cannot be reassigned
-
-><> type annotation is optional when a value is provided
-catch inferred = "hello"
+```bash
+tuna file.tuna
 ```
 
-### Functions
+---
+
+## Syntax
 
 ```tuna
+><> this is a comment
+
+><> variables and constants
+catch name = "tuna"
+catch age: number = 3
+anchor MAX: number = 100
+
+><> functions — closed with 'shore', return with 'serve'
 swim add(a: number, b: number): number
   serve a + b
 shore
 
-swim greet(who: string): string
-  serve "hello, " + who + "!"
-shore
+bubble(add(3, 7))   ><> 10
 
-bubble(add(3, 7))       ><> 10
-bubble(greet("tuna"))   ><> "hello, tuna!"
-```
-
-### Conditionals
-
-```tuna
-catch score: number = 74
-
+><> conditionals
 if score >= 90
   bubble("A")
 else if score >= 70
@@ -71,89 +49,80 @@ else if score >= 70
 else
   bubble("F")
 shore
-```
 
-### Loops
-
-```tuna
-catch i: number = 0
+><> while loop
+catch i = 0
 while i < 5
   bubble(i)
   i++
 shore
 
-catch fish: []string = ["salmon", "mackerel", "tuna"]
+><> for-in loop
+catch fish = ["salmon", "mackerel", "tuna"]
 for f in fish
-  if f == "tuna"
-    bubble("found the tuna!")
-  shore
+  bubble(f)
 shore
-```
 
-### Objects
-
-```tuna
-catch point: object = { x: 10, y: 20 }
-bubble(point.x)   ><> 10
-
+><> objects
+catch point = { x: 10, y: 20 }
 point.x = 99
-bubble(point.x)   ><> 99
 ```
 
-### Standard Library
+---
 
-The stdlib is organised into three namespace objects and a few universal functions.
+## Standard Library
+
+### Globals
+| Function | Returns | Description |
+|---|---|---|
+| `bubble(...values)` | void | Prints all arguments separated by spaces |
+| `len(value)` | number | Length of a string or array |
+| `typeOf(value)` | string | Type name of a value |
+| `toString(value)` | string | Converts any value to a string |
+| `toNumber(value)` | number | Converts a string or bool to a number |
+
+### `math`
+`floor` `ceil` `round` `abs` `min` `max` `pow` `sqrt` `rand` `randInt` `pi` `e` `inf`
+
+### `string`
+`upper` `lower` `trim` `split` `contains` `replace` `startsWith` `endsWith` `repeat` `indexOf`
+
+### `array`
+`push` `pop` `dropLast` `sort` `reverse` `first` `last` `slice` `contains` `join`
+
+### `tui`
+| Function | Description |
+|---|---|
+| `tui.clear()` | Clears the terminal |
+| `tui.move(row, col)` | Moves the cursor |
+| `tui.print(...values)` | Prints without a newline |
+| `tui.println(...values)` | Prints with a newline |
+| `tui.input(prompt)` | Reads a line of user input |
+| `tui.color(color, text)` | Wraps text in an ANSI color (`red` `green` `yellow` `blue` `cyan` `magenta` `white` `bold` `dim`) |
+| `tui.bar(current, max, width)` | Renders a `█░` progress bar string |
+| `tui.sleep(ms)` | Pauses execution for `ms` milliseconds |
+| `tui.width()` | Terminal width in columns |
+| `tui.height()` | Terminal height in rows |
+
+---
+
+## Modules
+
+Use `cast` to export, `from`/`catch` to import.
 
 ```tuna
-><> math
-bubble(math.sqrt(144))         ><> 12
-bubble(math.pow(2, 8))         ><> 256
-bubble(math.abs(-5))           ><> 5
-bubble(math.min(3, 7))         ><> 3
-bubble(math.randInt(1, 10))    ><> random number between 1 and 10
-bubble(math.pi)                ><> 3.141592653589793
-
-><> string
-bubble(string.upper("tuna"))              ><> "TUNA"
-bubble(string.replace("hi", "hi", "hey")) ><> "hey"
-bubble(string.split("a,b,c", ","))        ><> [a, b, c]
-bubble(string.startsWith("tuna", "tu"))   ><> true
-
-><> array
-bubble(array.first([1, 2, 3]))    ><> 1
-bubble(array.last([1, 2, 3]))     ><> 3
-bubble(array.sort([3, 1, 2]))     ><> [1, 2, 3]
-bubble(array.reverse([1, 2, 3]))  ><> [3, 2, 1]
-catch nums = array.push([1, 2], 3) ><> [1, 2, 3]
-
-><> globals
-bubble(len("tuna"))     ><> 4
-bubble(typeOf(42))      ><> number
-bubble(toString(3.14))  ><> "3.14"
-bubble(toNumber("99"))  ><> 99
-```
-
-### Modules
-
-Split your code across multiple files using `cast` to export and `from`/`catch`/`as` to import.
-
-```tuna
-><> math_utils.tuna
+><> utils.tuna
 cast swim square(n: number): number
   serve n * n
 shore
 
-cast anchor TAX_RATE: number = 0.08
+cast anchor TAX_RATE = 0.08
 ```
 
 ```tuna
 ><> main.tuna
-from "math_utils.tuna" catch square, TAX_RATE
+from "utils.tuna" catch square, TAX_RATE as tax
 
 bubble(square(5))  ><> 25
-bubble(TAX_RATE)   ><> 0.08
-
-><> import with an alias
-from "math_utils.tuna" catch square as sq
-bubble(sq(12))     ><> 144
+bubble(tax)        ><> 0.08
 ```
