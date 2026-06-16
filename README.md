@@ -1,6 +1,6 @@
 # Tunascript
 
-A small scripting language built in Go. Ocean-themed syntax, no dependencies, surprisingly readable.
+A small scripting language built in Go. Ocean-themed syntax, no dependencies, surprisingly intuitive.
 
 Licensed under MIT.
 
