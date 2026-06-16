@@ -4,10 +4,9 @@ cast catch Player = {
    health: 100,
    speed: 3,
 
-   dmgMin: 10,
-   dmgMax: 30,
+   dmgMin: 15,
    armor: "None",
-   weapon: "None",
+   weapon: "Sword",
 }
 
 cast catch Goblin = {
@@ -17,6 +16,16 @@ cast catch Goblin = {
 
    dmgMin: 10,
    dmgMax: 15,
+   armor: "None",
+   weapon: "None",
+}
+
+cast catch Dummy = {
+   name: "Dummy",
+   health: math.inf,
+   
+   speed: 0,
+   dmgMin: 25,
    armor: "None",
    weapon: "None",
 }

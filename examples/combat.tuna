@@ -1,47 +1,64 @@
-from "armorShop.tuna" catch getReduction
+from "shop.tuna" catch getReduction, getDamageBoost
 
-catch debug = false
+catch log = ""
 
-swim attack(a: object, b: object): void
-   catch dmgRoll = math.randInt(a.dmgMin, a.dmgMax)
-   catch reduction = getReduction(b.armor)
-   catch final = dmgRoll - (dmgRoll * reduction / 100)
-   b.health = math.max(0, b.health - final)
+swim drawCombat(a: object, b: object): void
+	tui.clear()
 
-   if debug
-   	bubble(b.name, " took ", final, " damage!")
-   shore
+	tui.println(tui.color("cyan", a.name))
+	tui.println(tui.bar(a.health, a.maxHealth, 20) + "  " + toString(math.round(a.health)) + " / " + toString(a.maxHealth) + " hp")
+	tui.println("")
+
+	tui.println(tui.color("red", b.name))
+	tui.println(tui.bar(b.health, b.maxHealth, 20) + "  " + toString(math.round(b.health)) + " / " + toString(b.maxHealth) + " hp")
+	tui.println("")
+
+	tui.println(tui.color("dim", log))
 shore
 
-cast swim fight(a: object, b: object, db: bool): object
-   debug = db
-   catch firstAttacker = a
-   catch secondAttacker = b
+swim attack(a: object, b: object): void
+	catch reduction = getReduction(b.armor)
+	catch boost = getDamageBoost(a.weapon)
+	catch dmg = a.dmgMin - (a.dmgMin * (boost / 100) * (reduction / 100))
+	b.health = math.max(0, b.health - dmg)
 
-   if debug 
-   	bubble(firstAttacker.name, " goes first!")
-   shore
+	log = tui.color("yellow", a.name) + " dealt " + tui.color("red", toString(math.round(dmg))) + " damage to " + tui.color("cyan", b.name)
 
-   if secondAttacker.speed > firstAttacker.speed 
-   	catch temp = firstAttacker
-      firstAttacker = secondAttacker
-      secondAttacker = temp
-   shore
+	drawCombat(a, b)
+	tui.sleep(600)
+shore
 
-   while a.health > 0 and b.health > 0 
-   	attack(firstAttacker, secondAttacker)
-   	catch temp = firstAttacker
-      firstAttacker = secondAttacker
-      secondAttacker = temp
-   shore
+cast swim fight(a: object, b: object): object
+	a.maxHealth = a.health
+	b.maxHealth = b.health
 
-   catch winner = nil
-   
-   if a.health == 0
-   	winner = b
-   else
-      winner = a
-   shore
+	catch firstAttacker = a
+	catch secondAttacker = b
 
-   serve winner
+	if secondAttacker.speed > firstAttacker.speed
+		catch temp = firstAttacker
+		firstAttacker = secondAttacker
+		secondAttacker = temp
+	shore
+
+	log = tui.color("bold", firstAttacker.name) + " attacks first!"
+	drawCombat(a, b)
+	tui.sleep(1000)
+
+	while a.health > 0 and b.health > 0
+		attack(firstAttacker, secondAttacker)
+		catch temp = firstAttacker
+		firstAttacker = secondAttacker
+		secondAttacker = temp
+	shore
+
+	catch winner = nil
+
+	if a.health == 0
+		winner = b
+	else
+		winner = a
+	shore
+
+	serve winner
 shore

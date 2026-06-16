@@ -5,10 +5,25 @@ catch Armors = {
    Steel: 25,
 }
 
+catch Weapons = {
+   None: 0,
+   Knife: 10,
+   Bow: 25,
+   Sword: 40,
+}
+
 cast swim getReduction(a: string): number 
    if Armors[a] == nil 
    	serve 0
    else
       serve Armors[a]
    shore
+shore
+
+cast swim getDamageBoost(a: string): number 
+	if Weapons[a] == nil
+		serve 0
+   else
+   	serve Weapons[a]
+	shore
 shore

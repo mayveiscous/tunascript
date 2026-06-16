@@ -1,10 +1,38 @@
-><> imports
-from "characters.tuna" catch Player, Goblin
+from "characters.tuna" catch Player, Goblin, Dummy
 from "combat.tuna" catch fight
 
+swim printMenu(): void
+	tui.clear()
+	tui.println(tui.color("bold", "RPG"))
+	tui.println("")
+	tui.println(tui.color("cyan", "Choose your opponent:"))
+	tui.println("  " + tui.color("yellow", "1") + "  Goblin   (easy)")
+	tui.println("  " + tui.color("yellow", "2") + "  Dummy     (training)")
+	tui.println("")
+shore
+
 swim main(): void
-   catch winner = fight(Player, Goblin, true)
-   bubble(winner.name, " won!")
+	printMenu()
+
+	catch choice = tui.input("Enter 1 or 2: ")
+	catch enemy = nil
+
+	if choice == "1"
+		enemy = Goblin
+	else
+		enemy = Dummy
+	shore
+
+	catch winner = fight(Player, enemy)
+
+	tui.sleep(800)
+	tui.println("")
+	if winner.name == Player.name
+		tui.println(tui.color("green", "You won!"))
+	else
+		tui.println(tui.color("red", "You lost!"))
+	shore
+	tui.println("")
 shore
 
 main()

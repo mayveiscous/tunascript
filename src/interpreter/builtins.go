@@ -7,6 +7,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"os"
+	"time"
+	"golang.org/x/term"
 )
 
 func registerBuiltins(env *Environment) {
@@ -136,6 +139,7 @@ func registerBuiltins(env *Environment) {
 			}
 			return RuntimeValue{Kind: NumberVal, Value: float64(lo + rand.Intn(hi-lo+1))}
 		}}},
+		"inf": {Kind: NumberVal, Value: math.Inf(1)},
 		"pi": {Kind: NumberVal, Value: math.Pi},
 		"e":  {Kind: NumberVal, Value: math.E},
 	}
@@ -345,6 +349,118 @@ func registerBuiltins(env *Environment) {
 		}}},
 	}
 	env.Set("array", RuntimeValue{Kind: ObjectVal, Value: arrayNS})
+
+	tuiNS := map[string]RuntimeValue{
+		"clear": {Kind: FunctionVal, Value: NativeFunction{Name: "clear", Call: func(args []RuntimeValue) RuntimeValue {
+			 fmt.Print("\033[H\033[2J")
+			 return RuntimeValue{Kind: NullVal}
+		}}},
+  
+		"move": {Kind: FunctionVal, Value: NativeFunction{Name: "move", Call: func(args []RuntimeValue) RuntimeValue {
+			 assertArgCount("tui.move", args, 2)
+			 assertKind("tui.move", args[0], NumberVal)
+			 assertKind("tui.move", args[1], NumberVal)
+			 row := int(args[0].Value.(float64))
+			 col := int(args[1].Value.(float64))
+			 fmt.Printf("\033[%d;%dH", row, col)
+			 return RuntimeValue{Kind: NullVal}
+		}}},
+  
+		"color": {Kind: FunctionVal, Value: NativeFunction{Name: "color", Call: func(args []RuntimeValue) RuntimeValue {
+			 assertArgCount("tui.color", args, 2)
+			 assertKind("tui.color", args[0], StringVal)
+			 assertKind("tui.color", args[1], StringVal)
+			 colors := map[string]string{
+				  "black":   "\033[30m",
+				  "red":     "\033[31m",
+				  "green":   "\033[32m",
+				  "yellow":  "\033[33m",
+				  "blue":    "\033[34m",
+				  "magenta": "\033[35m",
+				  "cyan":    "\033[36m",
+				  "white":   "\033[37m",
+				  "bold":    "\033[1m",
+				  "dim":     "\033[2m",
+			 }
+			 code, ok := colors[args[0].Value.(string)]
+			 if !ok {
+				  panic(TunaError(fmt.Sprintf("tui.color() unknown color '%s'", args[0].Value.(string))))
+			 }
+			 return RuntimeValue{Kind: StringVal, Value: code + args[1].Value.(string) + "\033[0m"}
+		}}},
+  
+		"bar": {Kind: FunctionVal, Value: NativeFunction{Name: "bar", Call: func(args []RuntimeValue) RuntimeValue {
+			 assertArgCount("tui.bar", args, 3)
+			 assertKind("tui.bar", args[0], NumberVal)
+			 assertKind("tui.bar", args[1], NumberVal)
+			 assertKind("tui.bar", args[2], NumberVal)
+			 current := args[0].Value.(float64)
+			 max     := args[1].Value.(float64)
+			 width   := int(args[2].Value.(float64))
+			 if max <= 0 || math.IsInf(max, 1) {
+				  // infinite health — show a full bar in a different color
+				  return RuntimeValue{Kind: StringVal, Value: "\033[36m" + strings.Repeat("█", width) + "\033[0m"}
+			 }
+			 filled := int(math.Round((current / max) * float64(width)))
+			 if filled < 0 { filled = 0 }
+			 if filled > width { filled = width }
+			 empty := width - filled
+			 color := "\033[32m" // green
+			 if current/max < 0.5 { color = "\033[33m" } // yellow
+			 if current/max < 0.25 { color = "\033[31m" } // red
+			 return RuntimeValue{Kind: StringVal,
+				  Value: color + strings.Repeat("█", filled) + "\033[2m" + strings.Repeat("░", empty) + "\033[0m"}
+		}}},
+  
+		"print": {Kind: FunctionVal, Value: NativeFunction{Name: "print", Call: func(args []RuntimeValue) RuntimeValue {
+			 parts := make([]string, len(args))
+			 for i, arg := range args {
+				  parts[i] = nativeToString(arg)
+			 }
+			 fmt.Print(strings.Join(parts, " "))
+			 return RuntimeValue{Kind: NullVal}
+		}}},
+  
+		"println": {Kind: FunctionVal, Value: NativeFunction{Name: "println", Call: func(args []RuntimeValue) RuntimeValue {
+			 parts := make([]string, len(args))
+			 for i, arg := range args {
+				  parts[i] = nativeToString(arg)
+			 }
+			 fmt.Println(strings.Join(parts, " "))
+			 return RuntimeValue{Kind: NullVal}
+		}}},
+  
+		"input": {Kind: FunctionVal, Value: NativeFunction{Name: "input", Call: func(args []RuntimeValue) RuntimeValue {
+			 if len(args) == 1 {
+				  assertKind("tui.input", args[0], StringVal)
+				  fmt.Print(args[0].Value.(string))
+			 }
+			 var line string
+			 fmt.Scanln(&line)
+			 return RuntimeValue{Kind: StringVal, Value: line}
+		}}},
+  
+		"sleep": {Kind: FunctionVal, Value: NativeFunction{Name: "sleep", Call: func(args []RuntimeValue) RuntimeValue {
+			 assertArgCount("tui.sleep", args, 1)
+			 assertKind("tui.sleep", args[0], NumberVal)
+			 ms := args[0].Value.(float64)
+			 time.Sleep(time.Duration(ms) * time.Millisecond)
+			 return RuntimeValue{Kind: NullVal}
+		}}},
+  
+		"width": {Kind: FunctionVal, Value: NativeFunction{Name: "width", Call: func(args []RuntimeValue) RuntimeValue {
+			 width, _, err := term.GetSize(int(os.Stdout.Fd()))
+			 if err != nil { width = 80 }
+			 return RuntimeValue{Kind: NumberVal, Value: float64(width)}
+		}}},
+  
+		"height": {Kind: FunctionVal, Value: NativeFunction{Name: "height", Call: func(args []RuntimeValue) RuntimeValue {
+			 _, height, err := term.GetSize(int(os.Stdout.Fd()))
+			 if err != nil { height = 24 }
+			 return RuntimeValue{Kind: NumberVal, Value: float64(height)}
+		}}},
+  }
+  env.Set("tui", RuntimeValue{Kind: ObjectVal, Value: tuiNS})
 }
 
 func assertArgCount(name string, args []RuntimeValue, n int) {
