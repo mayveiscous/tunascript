@@ -1,8 +1,7 @@
 from "classes.tuna" catch Classes
 
 swim askForClass(): string
-   ></
-   	catch input as tui.input("Choose a class: ")
+   catch input as tui.input("Choose a class: ")
    tui.println(" ")
    for name, class in Classes
       tui.println(name)
@@ -15,7 +14,6 @@ swim askForClass(): string
    shore
 
 	serve input
-   />
    serve ""
 shore
 

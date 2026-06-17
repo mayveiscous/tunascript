@@ -188,9 +188,10 @@ func loadModule(importPath string, ctx ExecContext) map[string]RuntimeValue {
 	if filepath.IsAbs(importPath) {
 		absPath = importPath
 	} else {
-		baseDir := ctx.rootDir
+		baseDir := filepath.Dir(ctx.filePath)
 
-		absPath, err = filepath.Abs(filepath.Join(baseDir, importPath))
+		joined := filepath.Join(baseDir, importPath)
+		absPath, err = filepath.Abs(joined)
 		if err != nil {
 			panic(TunaError(fmt.Sprintf(
 				"cannot resolve import path '%s': %s",
@@ -198,10 +199,13 @@ func loadModule(importPath string, ctx ExecContext) map[string]RuntimeValue {
 		}
 	}
 
+	absPath = filepath.Clean(absPath)
+
 	if cached, ok := ctx.moduleCache[absPath]; ok {
 		if cached == nil {
 			panic(TunaError(fmt.Sprintf(
-				"import cycle detected involving '%s'", absPath)))
+				"import cycle detected involving '%s'",
+				absPath)))
 		}
 		return cached
 	}
@@ -210,13 +214,16 @@ func loadModule(importPath string, ctx ExecContext) map[string]RuntimeValue {
 
 	src, err := os.ReadFile(absPath)
 	if err != nil {
-		panic(TunaError(fmt.Sprintf("cannot read module '%s': %s", absPath, err)))
+		panic(TunaError(fmt.Sprintf(
+			"cannot read module '%s': %s",
+			absPath, err)))
 	}
 
 	tokens := lexer.Lex(string(src))
 	block := tunaparser.Parse(tokens)
 
 	exports := executeModule(block, absPath, ctx)
+
 	ctx.moduleCache[absPath] = exports
 	return exports
 }

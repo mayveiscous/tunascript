@@ -1,4 +1,4 @@
-from "examples/rpg/classes/classSelection.tuna" catch getClass
+from "../classes/classSelection.tuna" catch getClass
 
 swim canLoad(): bool
     catch path = os.scriptDir + "/playerData.tuna"
@@ -37,7 +37,7 @@ swim defaultPlayerData(name: string, class: string): object
         ores: {
 
         }
-    }
+    }   
 shore
 
 cast swim init_data(): object

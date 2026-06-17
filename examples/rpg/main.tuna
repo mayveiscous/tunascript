@@ -1,5 +1,5 @@
-from "characters.tuna" catch Player
-from "data/data.tuna" catch init_data, saveGame
+from "./characters.tuna" catch Player
+from "./data/data.tuna" catch init_data, saveGame
 
 swim main(): void
 	catch data as init_data()

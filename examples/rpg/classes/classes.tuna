@@ -1,8 +1,8 @@
-cast catch classes = {
-   Tuna = {
+cast catch Classes = {
+   Tuna: {
       
    },
-   Other = {
+   Other: {
 
    },
 }
