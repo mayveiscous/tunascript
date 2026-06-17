@@ -1,2 +1,26 @@
 from "classes.tuna" catch Classes
 
+swim askForClass(): string
+   ></
+   	catch input as tui.input("Choose a class: ")
+   tui.println(" ")
+   for name, class in Classes
+      tui.println(name)
+   shore
+
+   if Classes[input] == nil
+   	tui.println(" ")
+      tui.println("that's not a valid class")
+      askForClass()
+   shore
+
+	serve input
+   />
+   serve ""
+shore
+
+cast swim getClass(): string
+	catch input as askForClass()
+
+   serve Classes[input]
+shore

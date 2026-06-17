@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 	"golang.org/x/term"
+	"encoding/json"
 )
 
 func registerBuiltins(env *Environment) {
@@ -80,6 +81,29 @@ func registerBuiltins(env *Environment) {
 			}
 		},
 	}})
+
+	jsonNS := map[string]RuntimeValue{
+		"encode": {Kind: FunctionVal, Value: NativeFunction{Name: "encode", Call: func(args []RuntimeValue) RuntimeValue {
+			 assertArgCount("json.encode", args, 1)
+			 native := runtimeToNative(args[0])
+			 b, err := json.MarshalIndent(native, "", "  ")
+			 if err != nil {
+				  panic(TunaError(fmt.Sprintf("json.encode() failed: %s", err)))
+			 }
+			 return RuntimeValue{Kind: StringVal, Value: string(b)}
+		}}},
+  
+		"decode": {Kind: FunctionVal, Value: NativeFunction{Name: "decode", Call: func(args []RuntimeValue) RuntimeValue {
+			 assertArgCount("json.decode", args, 1)
+			 assertKind("json.decode", args[0], StringVal)
+			 var raw any
+			 if err := json.Unmarshal([]byte(args[0].Value.(string)), &raw); err != nil {
+				  panic(TunaError(fmt.Sprintf("json.decode() failed: %s", err)))
+			 }
+			 return nativeToRuntime(raw)
+		}}},
+  }
+  env.Set("json", RuntimeValue{Kind: ObjectVal, Value: jsonNS})
 
 	mathNS := map[string]RuntimeValue{
 		"floor": {Kind: FunctionVal, Value: NativeFunction{Name: "floor", Call: func(args []RuntimeValue) RuntimeValue {
@@ -561,6 +585,22 @@ func registerBuiltins(env *Environment) {
 		 return RuntimeValue{Kind: ObjectVal, Value: fileObj}
 	}}},
 
+	"append": {Kind: FunctionVal, Value: NativeFunction{Name: "append", Call: func(args []RuntimeValue) RuntimeValue {
+		assertArgCount("os.append", args, 2)
+		assertKind("os.append", args[0], StringVal)
+		assertKind("os.append", args[1], StringVal)
+		f, err := os.OpenFile(args[0].Value.(string), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			 panic(TunaError(fmt.Sprintf("os.append() could not open '%s': %s", args[0].Value.(string), err)))
+		}
+		defer f.Close()
+		_, err = f.WriteString(args[1].Value.(string))
+		if err != nil {
+			 panic(TunaError(fmt.Sprintf("os.append() could not write to '%s': %s", args[0].Value.(string), err)))
+		}
+		return RuntimeValue{Kind: NullVal}
+  }}},
+
 	"close": {Kind: FunctionVal, Value: NativeFunction{Name: "close", Call: func(args []RuntimeValue) RuntimeValue {
 		 assertArgCount("os.close", args, 1)
 		 assertKind("os.close", args[0], ObjectVal)
@@ -616,6 +656,63 @@ func runtimeEqual(a, b RuntimeValue) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func runtimeToNative(val RuntimeValue) any {
+	switch val.Kind {
+	case NumberVal:
+		 return val.Value.(float64)
+	case StringVal:
+		 return val.Value.(string)
+	case BoolVal:
+		 return val.Value.(bool)
+	case NullVal:
+		 return nil
+	case ArrayVal:
+		 arr := val.Value.([]RuntimeValue)
+		 result := make([]any, len(arr))
+		 for i, v := range arr {
+			  result[i] = runtimeToNative(v)
+		 }
+		 return result
+	case ObjectVal:
+		 props := val.Value.(map[string]RuntimeValue)
+		 result := map[string]any{}
+		 for k, v := range props {
+			  result[k] = runtimeToNative(v)
+		 }
+		 return result
+	default:
+		 return nil
+	}
+}
+
+func nativeToRuntime(val any) RuntimeValue {
+	if val == nil {
+		 return RuntimeValue{Kind: NullVal}
+	}
+	switch v := val.(type) {
+	case float64:
+		 return RuntimeValue{Kind: NumberVal, Value: v}
+	case string:
+		 return RuntimeValue{Kind: StringVal, Value: v}
+	case bool:
+		 return RuntimeValue{Kind: BoolVal, Value: v}
+	case []any:
+		 arr := make([]RuntimeValue, len(v))
+		 for i, el := range v {
+			  arr[i] = nativeToRuntime(el)
+		 }
+		 return RuntimeValue{Kind: ArrayVal, Value: arr}
+	case map[string]any:
+		 props := map[string]RuntimeValue{}
+		 for k, el := range v {
+			  props[k] = nativeToRuntime(el)
+		 }
+		 return RuntimeValue{Kind: ObjectVal, Value: props}
+	default:
+		 return RuntimeValue{Kind: NullVal}
 	}
 }
 

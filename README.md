@@ -28,11 +28,20 @@ tuna file.tuna
 
 ```tuna
 ><> this is a comment
+></
+this is a 
+multi-line
+comment
+/>
 
 ><> variables and constants
 catch name = "tuna"
 catch age: number = 3
 anchor MAX: number = 100
+
+><> variables can also be declared as follows
+catch name as "tuna"
+catch age: number as 3
 
 ><> functions — closed with 'shore', return with 'serve'
 swim add(a: number, b: number): number
@@ -66,6 +75,17 @@ shore
 ><> objects
 catch point = { x: 10, y: 20 }
 point.x = 99
+
+catch data = {
+  name: "Tuna",
+  age: 17,
+  items: {
+    salmon: 1,
+    mackerals: 3
+  },
+
+  favouriteColor: "Teal"
+}
 ```
 
 ---

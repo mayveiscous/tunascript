@@ -1,0 +1,82 @@
+from "examples/rpg/classes/classSelection.tuna" catch getClass
+
+swim canLoad(): bool
+    catch path = os.scriptDir + "/playerData.tuna"
+    catch exists = false
+
+    try
+        catch source = os.read(path)
+        if source != ""
+            exists = true
+        shore
+    hook err
+        exists = false
+    shore
+
+    serve exists
+shore
+
+swim defaultPlayerData(name: string, class: string): object
+    serve {
+        name: name,
+        class: class,
+        gold: 0,
+        weapon: "None",
+        armor: "None",
+        
+        inventory: {
+
+        },
+        stats: {
+            enemiesKilled: 0,
+            health: 100,
+            maxHealth: 100,
+            baseDmg: 10,
+            speed: 1,
+        },
+        ores: {
+
+        }
+    }
+shore
+
+cast swim init_data(): object
+    catch path as os.scriptDir + "/playerData.tuna"
+
+    catch data: object
+
+    if canLoad()
+        bubble("Loading save data...")
+
+        catch saveData as json.decode(
+            os.read(path)
+        )
+
+        bubble("Welcome back, " + saveData.player.name + "!")
+        data = saveData
+    else
+        bubble("Creating new save...")
+
+        catch name as tui.input("Choose a name for your character: ")
+
+        catch class as getClass()
+        catch saveData = defaultPlayerData(name, class)
+
+        os.write(
+            path,
+            json.encode(saveData, class)
+        )
+
+        bubble("Welcome, " + saveData.player.name + "!")
+        data = saveData
+    shore
+
+    serve data
+shore
+
+cast swim saveGame(data: object): void
+    os.write(
+        os.scriptDir + "/playerData.tuna",
+        json.encode(data)
+    )
+shore

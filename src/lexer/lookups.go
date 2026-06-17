@@ -59,7 +59,6 @@ const (
 
 	// Reserved
 	SHORE
-	CLASS
 	CONST
 	IF
 	ELSE
@@ -93,7 +92,6 @@ var reserved_lu = map[string]TokenKind{
 	"for":      FOR,
 	"typeof":   TYPEOF,
 	"in":       IN,
-	"class":    CLASS,
 	"serve":    RETURN,
 	"new":      NEW,
 	"swim":     SWIM,
@@ -153,7 +151,6 @@ var tokenKindStrings = map[TokenKind]string{
 	MINUS_EQUALS:  "-=",
 	STAR_EQUALS:   "*=",
 	SLASH_EQUALS:  "/=",
-	CLASS:         "class",
 	CONST:         "anchor",
 	IF:            "if",
 	ELSE:          "else",

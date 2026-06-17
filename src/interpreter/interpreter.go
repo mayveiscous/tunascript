@@ -106,19 +106,21 @@ func (ctx ExecContext) withFunction() ExecContext {
 
 
 func Interpret(block tunaparser.BlockStatement, filePath string) RuntimeValue {
-	env := NewEnvironment(nil)
-	registerBuiltins(env)
+	absPath, _ := filepath.Abs(filePath)
+
+	rootDir := filepath.Dir(absPath) // entry script defines root
+	env := NewRuntimeEnvironmentWithRoot(filePath, rootDir)
 
 	builtinNames := map[string]bool{}
 	for k := range env.variables {
-		 builtinNames[k] = true
+		builtinNames[k] = true
 	}
 
-	absPath, _ := filepath.Abs(filePath)
 	ctx := ExecContext{
-		 filePath:     absPath,
-		 moduleCache:  map[string]map[string]RuntimeValue{},
-		 builtinNames: builtinNames,
+		filePath:     absPath,
+		moduleCache:  map[string]map[string]RuntimeValue{},
+		builtinNames: builtinNames,
+		rootDir:      rootDir,
 	}
 
 	for _, stmt := range block.Body {
@@ -150,6 +152,31 @@ func EvaluateBlock(block tunaparser.BlockStatement, env *Environment, ctx ExecCo
 	return result
 }
 
+func NewRuntimeEnvironmentWithRoot(filePath string, rootDir string) *Environment {
+	env := NewEnvironment(nil)
+
+	registerBuiltins(env)
+
+	absPath, _ := filepath.Abs(filePath)
+	scriptDir := filepath.Dir(absPath)
+
+	osVal := env.MustGet("os")
+	osProps := osVal.Value.(map[string]RuntimeValue)
+
+	osProps["scriptDir"] = RuntimeValue{
+		Kind:  StringVal,
+		Value: scriptDir,
+	}
+
+	osProps["rootDir"] = RuntimeValue{
+		Kind:  StringVal,
+		Value: rootDir,
+	}
+
+	return env
+}
+
+
 func loadModule(importPath string, ctx ExecContext) map[string]RuntimeValue {
 	if filepath.Ext(importPath) == "" {
 		importPath += ".tuna"
@@ -158,13 +185,16 @@ func loadModule(importPath string, ctx ExecContext) map[string]RuntimeValue {
 	var absPath string
 	var err error
 
-	baseDir := filepath.Dir(ctx.filePath)
 	if filepath.IsAbs(importPath) {
 		absPath = importPath
 	} else {
+		baseDir := ctx.rootDir
+
 		absPath, err = filepath.Abs(filepath.Join(baseDir, importPath))
 		if err != nil {
-			panic(TunaError(fmt.Sprintf("cannot resolve import path '%s': %s", importPath, err)))
+			panic(TunaError(fmt.Sprintf(
+				"cannot resolve import path '%s': %s",
+				importPath, err)))
 		}
 	}
 
@@ -192,13 +222,15 @@ func loadModule(importPath string, ctx ExecContext) map[string]RuntimeValue {
 }
 
 func executeModule(block tunaparser.BlockStatement, absPath string, parentCtx ExecContext) map[string]RuntimeValue {
-	env := NewEnvironment(nil)
-	registerBuiltins(env)
+	env := NewRuntimeEnvironmentWithRoot(absPath, parentCtx.rootDir)
+
 	exports := map[string]RuntimeValue{}
+
 	ctx := ExecContext{
-		filePath:    absPath,
-		moduleCache: parentCtx.moduleCache,
+		filePath:     absPath,
+		moduleCache:  parentCtx.moduleCache,
 		builtinNames: parentCtx.builtinNames,
+		rootDir:      parentCtx.rootDir,
 	}
 
 	for _, stmt := range block.Body {

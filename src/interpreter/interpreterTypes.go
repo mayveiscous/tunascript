@@ -43,4 +43,5 @@ type ExecContext struct {
 	filePath   string
 	moduleCache map[string]map[string]RuntimeValue
 	builtinNames map[string]bool
+	rootDir      string
 }
