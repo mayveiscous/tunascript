@@ -1,5 +1,13 @@
 package imui
 
+func applyAnchor(widget *Widget, x, y, w, h int) (int, int) {
+	if widget.HasAnchor {
+		x = x - int(widget.AnchorX*float64(w))
+		y = y - int(widget.AnchorY*float64(h))
+	}
+	return x, y
+}
+
 func Text(id string, text string) *Widget {
 	widget := GetOrCreateWidget(id, "text")
 
@@ -7,7 +15,14 @@ func Text(id string, text string) *Widget {
 	if widget.HasOverrideText { display = widget.OverrideText }
 
 	w, h := len(display)*8, 16
-	x, y := getNextLayoutPosition(w, h)
+	var x, y int
+	if widget.HasOverrideXY {
+		x, y = widget.OverrideX, widget.OverrideY
+	} else {
+		x, y = getNextLayoutPosition(w, h)
+	}
+	widget.X, widget.Y = x, y
+	x, y = applyAnchor(widget, x, y, w, h)
 
 	base := resolveStyle(id, "text")
 	tc := pick(widget.TextColor, widget.HasTextColor, base.TextColor)
@@ -27,7 +42,14 @@ func Button(id string, text string) (*Widget, bool) {
 	w := 120; if widget.HasWidth  { w = widget.Width  }
 	h := 30;  if widget.HasHeight { h = widget.Height }
 
-	x, y := getNextLayoutPosition(w, h)
+	var x, y int
+	if widget.HasOverrideXY {
+		x, y = widget.OverrideX, widget.OverrideY
+	} else {
+		x, y = getNextLayoutPosition(w, h)
+	}
+	widget.X, widget.Y = x, y
+	x, y = applyAnchor(widget, x, y, w, h)
 
 	isHovered := State.MouseX >= x && State.MouseX <= x+w &&
 		State.MouseY >= y && State.MouseY <= y+h
@@ -52,15 +74,29 @@ func Button(id string, text string) (*Widget, bool) {
 	default:                                 color = idleC
 	}
 
-	brush := createSolidBrush(color)
-	rect := RECT{int32(x), int32(y), int32(x+w), int32(y+h)}
-	fillRect(globalHDC, &rect, brush)
-	frameRect(globalHDC, &rect, createSolidBrush(0x00000000))
-	deleteObject(brush)
+	borderC   := pick(widget.BorderColor,      widget.HasBorderColor,      0x00000000)
+	borderThk := 1
+	if widget.HasBorderThickness { borderThk = widget.BorderThickness }
+	cornerR   := 0
+	if widget.HasCornerRadius    { cornerR = widget.CornerRadius }
+
+	drawFilledRect(globalHDC, x, y, w, h, color, borderC, borderThk, cornerR)
 
 	procSetTextColor.Call(globalHDC, uintptr(textC))
 	procSetBkMode.Call(globalHDC, 1)
-	drawRawText(globalHDC, text, x+12, y+6)
+	textW := len(text) * 8
+	textH := 16
+	tx := x + (w-textW)/2
+	if tx < x {
+		tx = x
+	}
+	ty := y + (h-textH)/2
+	if ty < y {
+		ty = y
+	}
+	if tx+textW <= x+w && ty+textH <= y+h {
+		drawRawText(globalHDC, text, tx, ty)
+	}
 
 	clicked := false
 	if !State.MouseDown && State.ActiveID == id {
@@ -82,7 +118,16 @@ func Checkbox(id string, label string) (*Widget, bool) {
 	if widget.HasLabel { displayLabel = widget.Label }
 
 	size := 18
-	x, y := getNextLayoutPosition(size, size)
+	if widget.HasWidth { size = widget.Width }
+
+	var x, y int
+	if widget.HasOverrideXY {
+		x, y = widget.OverrideX, widget.OverrideY
+	} else {
+		x, y = getNextLayoutPosition(size, size)
+	}
+	widget.X, widget.Y = x, y
+	x, y = applyAnchor(widget, x, y, size, size)
 
 	ws := State.WidgetState[id]
 	hovered := State.MouseX >= x && State.MouseX <= x+size &&
@@ -101,18 +146,18 @@ func Checkbox(id string, label string) (*Widget, bool) {
 
 	_ = wasChecked
 
-	borderC := pick(widget.BorderColor, widget.HasBorderColor, 0x00000000)
-	checkC  := pick(widget.CheckColor,  widget.HasCheckColor,  0x0000AA00)
-	textC   := pick(widget.TextColor,   widget.HasTextColor,   State.DefaultStyle.TextColor)
+	borderC   := pick(widget.BorderColor, widget.HasBorderColor, 0x00000000)
+	checkC    := pick(widget.CheckColor,  widget.HasCheckColor,  0x0000AA00)
+	textC     := pick(widget.TextColor,   widget.HasTextColor,   State.DefaultStyle.TextColor)
+	borderThk := 1
+	if widget.HasBorderThickness { borderThk = widget.BorderThickness }
+	cornerR   := 0
+	if widget.HasCornerRadius    { cornerR = widget.CornerRadius }
 
 	boxColor := uint32(0x00FFFFFF)
 	if ws.Bool { boxColor = checkC }
 
-	brush := createSolidBrush(boxColor)
-	rect := RECT{int32(x), int32(y), int32(x+size), int32(y+size)}
-	fillRect(globalHDC, &rect, brush)
-	deleteObject(brush)
-	frameRect(globalHDC, &rect, createSolidBrush(borderC))
+	drawFilledRect(globalHDC, x, y, size, size, boxColor, borderC, borderThk, cornerR)
 
 	procSetTextColor.Call(globalHDC, uintptr(textC))
 	procSetBkMode.Call(globalHDC, 1)
@@ -129,7 +174,17 @@ func Toggle(id string, label string) (*Widget, bool) {
 	if widget.HasLabel { displayLabel = widget.Label }
 
 	trackW, trackH := 48, 22
-	x, y := getNextLayoutPosition(trackW+80, trackH)
+	if widget.HasWidth  { trackW = widget.Width }
+	if widget.HasHeight { trackH = widget.Height }
+
+	var x, y int
+	if widget.HasOverrideXY {
+		x, y = widget.OverrideX, widget.OverrideY
+	} else {
+		x, y = getNextLayoutPosition(trackW+80, trackH)
+	}
+	widget.X, widget.Y = x, y
+	x, y = applyAnchor(widget, x, y, trackW, trackH)
 
 	ws := State.WidgetState[id]
 	hovered := State.MouseX >= x && State.MouseX <= x+trackW &&
@@ -181,7 +236,17 @@ func Slider(id string, min, max, currentValue float64) (*Widget, float64) {
 	if widget.HasOverrideMax { max = widget.OverrideMax }
 
 	trackW, trackH := 160, 8
-	x, y := getNextLayoutPosition(trackW, trackH+8)
+	if widget.HasWidth  { trackW = widget.Width }
+	if widget.HasHeight { trackH = widget.Height }
+
+	var x, y int
+	if widget.HasOverrideXY {
+		x, y = widget.OverrideX, widget.OverrideY
+	} else {
+		x, y = getNextLayoutPosition(trackW, trackH+8)
+	}
+	widget.X, widget.Y = x, y
+	x, y = applyAnchor(widget, x, y, trackW, trackH)
 	ty := y + 4
 
 	ws := State.WidgetState[id]
@@ -225,18 +290,27 @@ func Slider(id string, min, max, currentValue float64) (*Widget, float64) {
 func Frame(id string, x, y, w, h int) *Widget {
 	State.CurrentIndex++
 	widget := GetOrCreateWidget(id, "frame")
+
+	if widget.HasOverrideXY {
+		x, y = widget.OverrideX, widget.OverrideY
+	}
 	widget.X, widget.Y, widget.W, widget.H = x, y, w, h
+	fx, fy := applyAnchor(widget, x, y, w, h)
 
-	bgC     := pick(widget.BgColor,          widget.HasBgColor,          0x00FAFAFA)
-	borderC := pick(widget.FrameBorderColor, widget.HasFrameBorderColor, 0x00AAAAAA)
+	bgC      := pick(widget.BgColor,            widget.HasBgColor,           0x00FAFAFA)
+	borderC  := pick(widget.FrameBorderColor,   widget.HasFrameBorderColor,  0x00AAAAAA)
+	// Also check the shared BorderColor as fallback
+	if !widget.HasFrameBorderColor && widget.HasBorderColor {
+		borderC = widget.BorderColor
+	}
+	borderThk := 1
+	if widget.HasBorderThickness { borderThk = widget.BorderThickness }
+	cornerR   := 0
+	if widget.HasCornerRadius    { cornerR = widget.CornerRadius }
 
-	bgBrush := createSolidBrush(bgC)
-	rc := RECT{int32(x), int32(y), int32(x+w), int32(y+h)}
-	fillRect(globalHDC, &rc, bgBrush)
-	deleteObject(bgBrush)
-	frameRect(globalHDC, &rc, createSolidBrush(borderC))
+	drawFilledRect(globalHDC, fx, fy, w, h, bgC, borderC, borderThk, cornerR)
 
-	pushLayout(x, y, w, h, widget)
+	pushLayout(fx, fy, w, h, widget)
 	return widget
 }
 

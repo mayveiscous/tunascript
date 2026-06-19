@@ -44,6 +44,7 @@ func (s SwapStatement) statement() {}
 func (s TryStatement) statement() {}
 func (s SchoolStatement) statement() {}
 
+func (e FunctionExpression) expression()   {}
 func (s ExpressionStatement) statement()  {}
 func (s BlockStatement) statement()       {}
 func (s ReturnStatement) statement()      {}

@@ -609,43 +609,65 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 	env.Set("os", RuntimeValue{Kind: ObjectVal, Value: osNS})
 
 	// ------------------------------------------------------------------
-	// Helper: wrap a *imui.Widget as a TunaScript object.
-	// Each call builds a fresh map but all closures share the same *Widget
-	// pointer, so property mutations on the returned object persist across
-	// frames just like Luau instance properties.
-	//
-	// colorFields / callbackFields / numFields are which keys to expose;
-	// extra entries (clicked, value, etc.) are passed in via `extra`.
+	// Persistent widget object cache — allows value-based properties
+	// (e.g. btn.textColor = "#FF0000") to survive across frames.
 	// ------------------------------------------------------------------
-	makeWidgetObj := func(
-		widget *imui.Widget,
-		colorFields []string,
-		extra map[string]RuntimeValue,
-	) RuntimeValue {
-		obj := map[string]RuntimeValue{}
+	widgetObjCache := map[string]map[string]RuntimeValue{}
 
-		// Color setters: btn.hoverColor = "#FF00FF"
-		// Exposed as one-arg setter functions since TunaScript uses
-		// assignment-style calls through the object system.
-		for _, f := range colorFields {
-			field := f
-			w := widget
-			obj[field] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
-				Name: field,
-				Call: func(cbArgs []RuntimeValue) RuntimeValue {
-					if len(cbArgs) == 1 {
-						w.SetColor(field, cbArgs[0].Value)
-					}
-					return RuntimeValue{Kind: NullVal}
-				},
-			}}
+	// Apply a cached color string to widget struct
+	applyColorProp := func(widget *imui.Widget, obj map[string]RuntimeValue, field string) {
+		if v, ok := obj[field]; ok && v.Kind == StringVal && v.Value.(string) != "" {
+			widget.SetColor(field, v.Value.(string))
 		}
+	}
 
-		// Merge extra (clicked, value, onChange wrappers, etc.)
-		for k, v := range extra {
-			obj[k] = v
+	// Apply common design props shared by most widgets
+	applyCommonDesignProps := func(widget *imui.Widget, obj map[string]RuntimeValue) {
+		if v, ok := obj["borderColor"]; ok && v.Kind == StringVal && v.Value.(string) != "" {
+			widget.SetColor("borderColor", v.Value.(string))
 		}
-		return RuntimeValue{Kind: ObjectVal, Value: obj}
+		if v, ok := obj["borderThickness"]; ok && v.Kind == NumberVal {
+			widget.BorderThickness = int(v.Value.(float64))
+			widget.HasBorderThickness = true
+		}
+		if v, ok := obj["cornerRadius"]; ok && v.Kind == NumberVal {
+			widget.CornerRadius = int(v.Value.(float64))
+			widget.HasCornerRadius = true
+		}
+	}
+
+	// Seed a new widget object with common entries and move() method
+	initWidgetObj := func(obj map[string]RuntimeValue, widget *imui.Widget) {
+		obj["px"] = RuntimeValue{Kind: NumberVal, Value: 0}
+		obj["py"] = RuntimeValue{Kind: NumberVal, Value: 0}
+		w := widget
+		obj["move"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "move",
+			Call: func(cbArgs []RuntimeValue) RuntimeValue {
+				if len(cbArgs) == 2 &&
+					cbArgs[0].Kind == NumberVal && cbArgs[1].Kind == NumberVal {
+					w.Move(int(cbArgs[0].Value.(float64)), int(cbArgs[1].Value.(float64)))
+				}
+				return RuntimeValue{Kind: NullVal}
+			},
+		}}
+		obj["setSize"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "setSize",
+			Call: func(cbArgs []RuntimeValue) RuntimeValue {
+				if len(cbArgs) == 2 &&
+					cbArgs[0].Kind == NumberVal && cbArgs[1].Kind == NumberVal {
+					w.SetSize(int(cbArgs[0].Value.(float64)), int(cbArgs[1].Value.(float64)))
+				}
+				return RuntimeValue{Kind: NullVal}
+			},
+		}}
+		obj["setAnchor"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "setAnchor",
+			Call: func(cbArgs []RuntimeValue) RuntimeValue {
+				if len(cbArgs) == 2 &&
+					cbArgs[0].Kind == NumberVal && cbArgs[1].Kind == NumberVal {
+					w.SetAnchor(cbArgs[0].Value.(float64), cbArgs[1].Value.(float64))
+				}
+				return RuntimeValue{Kind: NullVal}
+			},
+		}}
 	}
 
 	// Helper: wrap a script function value as a Go func()
@@ -757,10 +779,10 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 
 		// -------------------------------------------------------------------
 		// button(id, text) → {
-		//   clicked bool,
-		//   onClick(fn),  onHover(fn),
-		//   idleColor, hoverColor, pressColor, textColor,
-		//   width(n), height(n)
+		//   clicked bool, px, py,
+		//   onClick(fn), onHover(fn), move(x,y),
+		//   idleColor, hoverColor, pressColor, textColor, borderColor,
+		//   borderThickness, cornerRadius, width, height  (assignable)
 		// }
 		// -------------------------------------------------------------------
 		"button": {Kind: FunctionVal, Value: NativeFunction{
@@ -770,54 +792,60 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 				assertKind("imui.button", args[0], StringVal)
 				assertKind("imui.button", args[1], StringVal)
 
+				id := args[0].Value.(string)
+				widget := imui.GetOrCreateWidget(id, "button")
+
+				obj, exists := widgetObjCache[id]
+				if !exists {
+					obj = map[string]RuntimeValue{}
+					initWidgetObj(obj, widget)
+					w := widget
+					obj["clicked"] = RuntimeValue{Kind: BoolVal, Value: false}
+					obj["onClick"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "onClick",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 { w.OnClick = wrapVoidFn(cbArgs[0]) }
+							return RuntimeValue{Kind: NullVal}
+						},
+					}}
+					obj["onHover"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "onHover",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 { w.OnHover = wrapVoidFn(cbArgs[0]) }
+							return RuntimeValue{Kind: NullVal}
+						},
+					}}
+					widgetObjCache[id] = obj
+				}
+
+				// Apply cached properties before render
+				applyColorProp(widget, obj, "idleColor")
+				applyColorProp(widget, obj, "hoverColor")
+				applyColorProp(widget, obj, "pressColor")
+				applyColorProp(widget, obj, "textColor")
+				applyCommonDesignProps(widget, obj)
+				if v, ok := obj["width"]; ok && v.Kind == NumberVal {
+					widget.Width = int(v.Value.(float64))
+					widget.HasWidth = true
+				}
+				if v, ok := obj["height"]; ok && v.Kind == NumberVal {
+					widget.Height = int(v.Value.(float64))
+					widget.HasHeight = true
+				}
+
 				widget, clicked := imui.Button(args[0].Value.(string), args[1].Value.(string))
 
-				extra := map[string]RuntimeValue{
-					"clicked": {Kind: BoolVal, Value: clicked},
-					// onClick(fn) — installs persistent callback
-					"onClick": {Kind: FunctionVal, Value: NativeFunction{Name: "onClick",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 { widget.OnClick = wrapVoidFn(cbArgs[0]) }
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-					// onHover(fn)
-					"onHover": {Kind: FunctionVal, Value: NativeFunction{Name: "onHover",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 { widget.OnHover = wrapVoidFn(cbArgs[0]) }
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-					// width(n) / height(n)
-					"width": {Kind: FunctionVal, Value: NativeFunction{Name: "width",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 && cbArgs[0].Kind == NumberVal {
-								widget.Width = int(cbArgs[0].Value.(float64))
-								widget.HasWidth = true
-							}
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-					"height": {Kind: FunctionVal, Value: NativeFunction{Name: "height",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 && cbArgs[0].Kind == NumberVal {
-								widget.Height = int(cbArgs[0].Value.(float64))
-								widget.HasHeight = true
-							}
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-				}
-				return makeWidgetObj(widget,
-					[]string{"idleColor", "hoverColor", "pressColor", "textColor"},
-					extra)
+				obj["clicked"] = RuntimeValue{Kind: BoolVal, Value: clicked}
+				obj["px"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.X)}
+				obj["py"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.Y)}
+
+				return RuntimeValue{Kind: ObjectVal, Value: obj}
 			},
 		}},
 
 		// -------------------------------------------------------------------
 		// text(id, content) → {
-		//   color(c),
-		//   text(s)   ← overrides display string next frame
+		//   px, py, textColor, text, borderColor,
+		//   borderThickness, cornerRadius  (assignable),
+		//   move(x,y)
 		// }
 		// -------------------------------------------------------------------
 		"text": {Kind: FunctionVal, Value: NativeFunction{
@@ -827,30 +855,38 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 				assertKind("imui.text", args[0], StringVal)
 				assertKind("imui.text", args[1], StringVal)
 
-				widget := imui.Text(args[0].Value.(string), args[1].Value.(string))
+				id := args[0].Value.(string)
+				widget := imui.GetOrCreateWidget(id, "text")
 
-				extra := map[string]RuntimeValue{
-					// .text("new string") — overrides displayed text
-					"text": {Kind: FunctionVal, Value: NativeFunction{Name: "text",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 && cbArgs[0].Kind == StringVal {
-								widget.OverrideText    = cbArgs[0].Value.(string)
-								widget.HasOverrideText = true
-							}
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
+				obj, exists := widgetObjCache[id]
+				if !exists {
+					obj = map[string]RuntimeValue{}
+					initWidgetObj(obj, widget)
+					widgetObjCache[id] = obj
 				}
-				return makeWidgetObj(widget, []string{"textColor"}, extra)
+
+				applyColorProp(widget, obj, "textColor")
+				applyCommonDesignProps(widget, obj)
+				if v, ok := obj["text"]; ok && v.Kind == StringVal {
+					widget.OverrideText = v.Value.(string)
+					widget.HasOverrideText = true
+				}
+
+				widget = imui.Text(args[0].Value.(string), args[1].Value.(string))
+
+				obj["px"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.X)}
+				obj["py"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.Y)}
+
+				return RuntimeValue{Kind: ObjectVal, Value: obj}
 			},
 		}},
 
 		// -------------------------------------------------------------------
 		// checkbox(id, label) → {
-		//   checked bool,
-		//   onChange(fn(bool)),
-		//   checkColor, borderColor, textColor,
-		//   label(s)
+		//   checked bool, px, py,
+		//   onChange(fn(bool)), move(x,y),
+		//   checkColor, borderColor, textColor, borderThickness,
+		//   cornerRadius, size, label  (assignable)
 		// }
 		// -------------------------------------------------------------------
 		"checkbox": {Kind: FunctionVal, Value: NativeFunction{
@@ -860,38 +896,53 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 				assertKind("imui.checkbox", args[0], StringVal)
 				assertKind("imui.checkbox", args[1], StringVal)
 
+				id := args[0].Value.(string)
+				widget := imui.GetOrCreateWidget(id, "checkbox")
+
+				obj, exists := widgetObjCache[id]
+				if !exists {
+					obj = map[string]RuntimeValue{}
+					initWidgetObj(obj, widget)
+					w := widget
+					obj["checked"] = RuntimeValue{Kind: BoolVal, Value: false}
+					obj["onChange"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 { w.OnChange = wrapBoolFn(cbArgs[0]) }
+							return RuntimeValue{Kind: NullVal}
+						},
+					}}
+					widgetObjCache[id] = obj
+				}
+
+				applyColorProp(widget, obj, "checkColor")
+				applyColorProp(widget, obj, "borderColor")
+				applyColorProp(widget, obj, "textColor")
+				applyCommonDesignProps(widget, obj)
+				if v, ok := obj["label"]; ok && v.Kind == StringVal {
+					widget.Label = v.Value.(string)
+					widget.HasLabel = true
+				}
+				if v, ok := obj["size"]; ok && v.Kind == NumberVal {
+					widget.Width = int(v.Value.(float64))
+					widget.HasWidth = true
+				}
+
 				widget, checked := imui.Checkbox(args[0].Value.(string), args[1].Value.(string))
 
-				extra := map[string]RuntimeValue{
-					"checked": {Kind: BoolVal, Value: checked},
-					"onChange": {Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 { widget.OnChange = wrapBoolFn(cbArgs[0]) }
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-					"label": {Kind: FunctionVal, Value: NativeFunction{Name: "label",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 && cbArgs[0].Kind == StringVal {
-								widget.Label    = cbArgs[0].Value.(string)
-								widget.HasLabel = true
-							}
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-				}
-				return makeWidgetObj(widget,
-					[]string{"checkColor", "borderColor", "textColor"},
-					extra)
+				obj["checked"] = RuntimeValue{Kind: BoolVal, Value: checked}
+				obj["px"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.X)}
+				obj["py"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.Y)}
+
+				return RuntimeValue{Kind: ObjectVal, Value: obj}
 			},
 		}},
 
 		// -------------------------------------------------------------------
 		// toggle(id, label) → {
-		//   on bool,
-		//   onChange(fn(bool)),
+		//   on bool, px, py,
+		//   onChange(fn(bool)), move(x,y),
 		//   onColor, offColor, knobColor, textColor,
-		//   label(s)
+		//   trackWidth, trackHeight, label  (assignable)
 		// }
 		// -------------------------------------------------------------------
 		"toggle": {Kind: FunctionVal, Value: NativeFunction{
@@ -901,38 +952,57 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 				assertKind("imui.toggle", args[0], StringVal)
 				assertKind("imui.toggle", args[1], StringVal)
 
+				id := args[0].Value.(string)
+				widget := imui.GetOrCreateWidget(id, "toggle")
+
+				obj, exists := widgetObjCache[id]
+				if !exists {
+					obj = map[string]RuntimeValue{}
+					initWidgetObj(obj, widget)
+					w := widget
+					obj["on"] = RuntimeValue{Kind: BoolVal, Value: false}
+					obj["onChange"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 { w.OnChange = wrapBoolFn(cbArgs[0]) }
+							return RuntimeValue{Kind: NullVal}
+						},
+					}}
+					widgetObjCache[id] = obj
+				}
+
+				applyColorProp(widget, obj, "onColor")
+				applyColorProp(widget, obj, "offColor")
+				applyColorProp(widget, obj, "knobColor")
+				applyColorProp(widget, obj, "textColor")
+				if v, ok := obj["label"]; ok && v.Kind == StringVal {
+					widget.Label = v.Value.(string)
+					widget.HasLabel = true
+				}
+				if v, ok := obj["trackWidth"]; ok && v.Kind == NumberVal {
+					widget.Width = int(v.Value.(float64))
+					widget.HasWidth = true
+				}
+				if v, ok := obj["trackHeight"]; ok && v.Kind == NumberVal {
+					widget.Height = int(v.Value.(float64))
+					widget.HasHeight = true
+				}
+
 				widget, on := imui.Toggle(args[0].Value.(string), args[1].Value.(string))
 
-				extra := map[string]RuntimeValue{
-					"on": {Kind: BoolVal, Value: on},
-					"onChange": {Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 { widget.OnChange = wrapBoolFn(cbArgs[0]) }
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-					"label": {Kind: FunctionVal, Value: NativeFunction{Name: "label",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 && cbArgs[0].Kind == StringVal {
-								widget.Label    = cbArgs[0].Value.(string)
-								widget.HasLabel = true
-							}
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-				}
-				return makeWidgetObj(widget,
-					[]string{"onColor", "offColor", "knobColor", "textColor"},
-					extra)
+				obj["on"] = RuntimeValue{Kind: BoolVal, Value: on}
+				obj["px"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.X)}
+				obj["py"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.Y)}
+
+				return RuntimeValue{Kind: ObjectVal, Value: obj}
 			},
 		}},
 
 		// -------------------------------------------------------------------
 		// slider(id, min, max, value) → {
-		//   value float,
-		//   onChange(fn(float)),
+		//   value float, px, py,
+		//   onChange(fn(float)), move(x,y),
 		//   trackColor, handleColor,
-		//   min(n), max(n)
+		//   min, max, trackWidth, trackHeight, handleRadius  (assignable)
 		// }
 		// -------------------------------------------------------------------
 		"slider": {Kind: FunctionVal, Value: NativeFunction{
@@ -944,6 +1014,43 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 				assertKind("imui.slider", args[2], NumberVal)
 				assertKind("imui.slider", args[3], NumberVal)
 
+				id := args[0].Value.(string)
+				widget := imui.GetOrCreateWidget(id, "slider")
+
+				obj, exists := widgetObjCache[id]
+				if !exists {
+					obj = map[string]RuntimeValue{}
+					initWidgetObj(obj, widget)
+					w := widget
+					obj["value"] = RuntimeValue{Kind: NumberVal, Value: args[3].Value.(float64)}
+					obj["onChange"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 { w.OnSlide = wrapNumFn(cbArgs[0]) }
+							return RuntimeValue{Kind: NullVal}
+						},
+					}}
+					widgetObjCache[id] = obj
+				}
+
+				applyColorProp(widget, obj, "trackColor")
+				applyColorProp(widget, obj, "handleColor")
+				if v, ok := obj["min"]; ok && v.Kind == NumberVal {
+					widget.OverrideMin = v.Value.(float64)
+					widget.HasOverrideMin = true
+				}
+				if v, ok := obj["max"]; ok && v.Kind == NumberVal {
+					widget.OverrideMax = v.Value.(float64)
+					widget.HasOverrideMax = true
+				}
+				if v, ok := obj["trackWidth"]; ok && v.Kind == NumberVal {
+					widget.Width = int(v.Value.(float64))
+					widget.HasWidth = true
+				}
+				if v, ok := obj["trackHeight"]; ok && v.Kind == NumberVal {
+					widget.Height = int(v.Value.(float64))
+					widget.HasHeight = true
+				}
+
 				widget, val := imui.Slider(
 					args[0].Value.(string),
 					args[1].Value.(float64),
@@ -951,44 +1058,20 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 					args[3].Value.(float64),
 				)
 
-				extra := map[string]RuntimeValue{
-					"value": {Kind: NumberVal, Value: val},
-					"onChange": {Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 { widget.OnSlide = wrapNumFn(cbArgs[0]) }
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-					// Allow overriding min/max at runtime
-					"min": {Kind: FunctionVal, Value: NativeFunction{Name: "min",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 && cbArgs[0].Kind == NumberVal {
-								widget.OverrideMin    = cbArgs[0].Value.(float64)
-								widget.HasOverrideMin = true
-							}
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-					"max": {Kind: FunctionVal, Value: NativeFunction{Name: "max",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 && cbArgs[0].Kind == NumberVal {
-								widget.OverrideMax    = cbArgs[0].Value.(float64)
-								widget.HasOverrideMax = true
-							}
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-				}
-				return makeWidgetObj(widget,
-					[]string{"trackColor", "handleColor"},
-					extra)
+				obj["value"] = RuntimeValue{Kind: NumberVal, Value: val}
+				obj["px"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.X)}
+				obj["py"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.Y)}
+
+				return RuntimeValue{Kind: ObjectVal, Value: obj}
 			},
 		}},
 
 		// -------------------------------------------------------------------
 		// frame(id, x, y, w, h) → {
-		//   bgColor, frameBorderColor,
-		//   padding(n)
+		//   px, py,
+		//   move(x,y),
+		//   bgColor, borderColor, borderThickness, cornerRadius,
+		//   padding  (assignable)
 		// }
 		// Must be paired with imui.endFrame(id).
 		// -------------------------------------------------------------------
@@ -1002,7 +1085,26 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 				assertKind("imui.frame", args[3], NumberVal)
 				assertKind("imui.frame", args[4], NumberVal)
 
-				widget := imui.Frame(
+				id := args[0].Value.(string)
+				widget := imui.GetOrCreateWidget(id, "frame")
+
+				obj, exists := widgetObjCache[id]
+				if !exists {
+					obj = map[string]RuntimeValue{}
+					initWidgetObj(obj, widget)
+					widgetObjCache[id] = obj
+				}
+
+				applyColorProp(widget, obj, "bgColor")
+				applyColorProp(widget, obj, "borderColor")
+				applyColorProp(widget, obj, "frameBorderColor")
+				applyCommonDesignProps(widget, obj)
+				if v, ok := obj["padding"]; ok && v.Kind == NumberVal {
+					widget.Padding = int(v.Value.(float64))
+					widget.HasPadding = true
+				}
+
+				widget = imui.Frame(
 					args[0].Value.(string),
 					int(args[1].Value.(float64)),
 					int(args[2].Value.(float64)),
@@ -1010,20 +1112,10 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 					int(args[4].Value.(float64)),
 				)
 
-				extra := map[string]RuntimeValue{
-					"padding": {Kind: FunctionVal, Value: NativeFunction{Name: "padding",
-						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 && cbArgs[0].Kind == NumberVal {
-								widget.Padding    = int(cbArgs[0].Value.(float64))
-								widget.HasPadding = true
-							}
-							return RuntimeValue{Kind: NullVal}
-						},
-					}},
-				}
-				return makeWidgetObj(widget,
-					[]string{"bgColor", "frameBorderColor"},
-					extra)
+				obj["px"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.X)}
+				obj["py"] = RuntimeValue{Kind: NumberVal, Value: float64(widget.Y)}
+
+				return RuntimeValue{Kind: ObjectVal, Value: obj}
 			},
 		}},
 
@@ -1065,6 +1157,8 @@ func runtimeEqual(a, b RuntimeValue) bool {
 		return a.Value.(bool) == b.Value.(bool)
 	case NullVal:
 		return true
+	case ArrayVal, ObjectVal:
+		return runtimeDeepEqual(a, b)
 	default:
 		return false
 	}

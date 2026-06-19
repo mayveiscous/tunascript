@@ -1,20 +1,37 @@
 package interpreter
 
 const (
-	NumberVal ValueKind = iota
-	StringVal
-	BoolVal
-	NullVal
-	FunctionVal
-	ArrayVal
-	ObjectVal
+	ValNumber ValueKind = iota
+	ValString
+	ValBool
+	ValNull
+	ValFunction
+	ValArray
+	ValObject
 )
 
 const (
-	sigNone SignalKind = iota
-	sigReturn
-	sigBreak
-	sigContinue
+	NumberVal   = ValNumber
+	StringVal   = ValString
+	BoolVal     = ValBool
+	NullVal     = ValNull
+	FunctionVal = ValFunction
+	ArrayVal    = ValArray
+	ObjectVal   = ValObject
+)
+
+const (
+	SigNone SignalKind = iota
+	SigReturn
+	SigBreak
+	SigContinue
+)
+
+const (
+	sigNone   = SigNone
+	sigReturn = SigReturn
+	sigBreak  = SigBreak
+	sigContinue = SigContinue
 )
 
 func (k ValueKind) String() string {

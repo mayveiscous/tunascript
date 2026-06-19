@@ -55,14 +55,14 @@ func consumeSemicolon(p *parser) {
 
 func (p *parser) parseError(msg string) *lexer.TunaError {
 	t := p.currentToken()
-	return lexer.NewError(t.Line, t.Column, msg)
+	return lexer.NewError(p.filePath, t.Line, t.Column, msg)
 }
 
 func (p *parser) expectError(expectedKind lexer.TokenKind, err any) lexer.Token {
 	token := p.currentToken()
 	if token.Kind != expectedKind {
 		if err == nil {
-			panic(lexer.NewError(token.Line, token.Column,
+			panic(lexer.NewError(p.filePath, token.Line, token.Column,
 				fmt.Sprintf("expected '%s' but got '%s'",
 					lexer.TokenKindString(expectedKind), token.Value)))
 		}
@@ -116,6 +116,7 @@ func init() {
 	nudReg(lexer.FALSE,        parsePrimaryExpression)
 	nudReg(lexer.NULL,         parsePrimaryExpression)
 	nudReg(lexer.TYPEOF,       parseTypeofExpression)
+	nudReg(lexer.SWIM,         parseFunctionExpression)
 
 	statementReg(lexer.CONST,    parseVarDeclarationStatement)
 	statementReg(lexer.LET,      parseVarDeclarationStatement)
@@ -136,13 +137,13 @@ func init() {
 	typeNudReg(lexer.FUNCTION,     parseFunctionType)
 }
 
-func createParser(tokens []lexer.Token) *parser {
-	return &parser{tokens: tokens, pos: 0}
+func createParser(tokens []lexer.Token, filePath string) *parser {
+	return &parser{tokens: tokens, pos: 0, filePath: filePath}
 }
 
-func Parse(tokens []lexer.Token) BlockStatement {
+func Parse(tokens []lexer.Token, filePath string) BlockStatement {
 	body := make([]Statement, 0)
-	p := createParser(tokens)
+	p := createParser(tokens, filePath)
 	for p.hasTokens() {
 		body = append(body, parseStatement(p))
 	}

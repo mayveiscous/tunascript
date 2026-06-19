@@ -2,6 +2,7 @@ package interpreter
 
 import (
 	tunaparser "tunascript/src/parser"
+	"tunascript/src/directives"
 )
 
 type ValueKind int
@@ -40,10 +41,11 @@ type Environment struct {
 }
 
 type ExecContext struct {
-	inLoop     bool
-	inFunction bool
-	filePath   string
+	inLoop      bool
+	inFunction  bool
+	filePath    string
 	moduleCache map[string]map[string]RuntimeValue
 	builtinNames map[string]bool
-	rootDir      string
+	rootDir     string
+	Cfg          directives.Config
 }

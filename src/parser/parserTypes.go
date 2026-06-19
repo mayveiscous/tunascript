@@ -3,8 +3,9 @@ package parser
 import "tunascript/src/lexer"
 
 type parser struct {
-	tokens []lexer.Token
-	pos    int
+	tokens   []lexer.Token
+	pos      int
+	filePath string
 }
 
 type Statement interface{ statement() }
@@ -28,7 +29,10 @@ type typeLedHandler    func(p *parser, left AstType, bp BindingPower) AstType
 // Literals
 type NumberExpression struct{ Value float64 }
 type StringExpression struct{ Value string }
-type SymbolExpression struct{ Value string }
+type SymbolExpression struct {
+	Token lexer.Token
+	Value string
+}
 type BoolExpression    struct{ Value bool }
 
 type ArrayLiteral struct{ Elements []Expression }
@@ -84,11 +88,15 @@ type TypeofExpression struct {
 // Statements
 type BlockStatement struct{ Body []Statement }
 type ExpressionStatement struct{ Expression Expression }
-type ReturnStatement struct{ Value Expression }
-type BreakStatement struct{}
-type ContinueStatement struct{}
+type ReturnStatement struct {
+	Token lexer.Token
+	Value Expression
+}
+type BreakStatement struct{ Token lexer.Token }
+type ContinueStatement struct{ Token lexer.Token }
 
 type VariableDecStatement struct {
+	Token         lexer.Token
 	VariableName  string
 	IsConstant    bool
 	AssignedValue Expression
@@ -96,13 +104,21 @@ type VariableDecStatement struct {
 }
 
 type FunctionParameter struct {
+	Token      lexer.Token
 	Name       string
 	Type       AstType
 	IsVariadic bool
 }
 
 type FunctionDecStatement struct {
+	Token      lexer.Token
 	Name       string
+	Parameters []FunctionParameter
+	ReturnType AstType
+	Body       BlockStatement
+}
+
+type FunctionExpression struct {
 	Parameters []FunctionParameter
 	ReturnType AstType
 	Body       BlockStatement
@@ -127,6 +143,7 @@ type ForInStatement struct {
 }
 
 type ImportItem struct {
+	Token lexer.Token
 	Name  string
 	Alias string
 }
@@ -138,6 +155,7 @@ type TryStatement struct {
 }
 
 type ImportStatement struct {
+	Token lexer.Token
 	Path  string
 	Items []ImportItem
 }

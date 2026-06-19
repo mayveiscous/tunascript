@@ -12,13 +12,15 @@ type lexer struct {
 	line     int
 	col      int
 	patterns []regexPattern
+	filePath string
 }
 
 type Token struct {
-	Value  string
-	Kind   TokenKind
-	Line   int
-	Column int
+	Value    string
+	Kind     TokenKind
+	Line     int
+	Column   int
+	FilePath string
 }
 
 type regexHandler func(lex *lexer, regex *regexp.Regexp)
@@ -40,12 +42,13 @@ func (lex *lexer) advanceN(n int) {
 	}
 }
 
-func NewToken(kind TokenKind, value string, line, col int) Token {
+func NewToken(kind TokenKind, value string, line, col int, filePath string) Token {
 	return Token{
-		Value:  value,
-		Kind:   kind,
-		Line:   line,
-		Column: col,
+		Value:    value,
+		Kind:     kind,
+		Line:     line,
+		Column:   col,
+		FilePath: filePath,
 	}
 }
 
@@ -83,7 +86,7 @@ func skipWhitespace(lex *lexer, regex *regexp.Regexp) {
 	lex.advanceN(match[1])
 }
 
-func createLexer(source string) *lexer {
+func createLexer(source string, filePath string) *lexer {
 	return &lexer{
 		 pos:      0,
 		 line:     1,
@@ -91,11 +94,12 @@ func createLexer(source string) *lexer {
 		 source:   source,
 		 Tokens:   make([]Token, 0),
 		 patterns: patterns,
+		 filePath: filePath,
 	}
 }
 
-func Lex(source string) []Token {
-	lex := createLexer(source)
+func Lex(source string, filePath string) []Token {
+	lex := createLexer(source, filePath)
 
 	for !lex.at_eof() {
 		matched := false
@@ -108,11 +112,11 @@ func Lex(source string) []Token {
 			}
 		}
 		if !matched {
-			panic(NewError(lex.line, lex.col,
+			panic(NewError(lex.filePath, lex.line, lex.col,
 				fmt.Sprintf("unexpected character '%s'", string(lex.source[lex.pos]))))
 		}
 	}
 
-	lex.push(NewToken(EOF, "EOF", lex.line, lex.col))
+	lex.push(NewToken(EOF, "EOF", lex.line, lex.col, lex.filePath))
 	return lex.Tokens
 }

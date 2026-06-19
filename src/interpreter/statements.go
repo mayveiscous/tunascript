@@ -27,7 +27,7 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 		return valueResult(val)
 
 	case tunaparser.BreakStatement:
-		if !ctx.inLoop {
+		if !ctx.inLoop && !ctx.Cfg.NonStrict {
 			if ctx.inFunction {
 				panic(TunaError("`break` cannot cross a function boundary"))
 			}
@@ -36,7 +36,7 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 		return breakResult()
 
 	case tunaparser.ContinueStatement:
-		if !ctx.inLoop {
+		if !ctx.inLoop && !ctx.Cfg.NonStrict {
 			if ctx.inFunction {
 				panic(TunaError("`continue` cannot cross a function boundary"))
 			}
@@ -46,7 +46,11 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 
 	case tunaparser.ReturnStatement:
 		if !ctx.inFunction {
-			panic(TunaError("`serve` can only be used inside a function"))
+			if !ctx.Cfg.NonStrict {
+				panic(TunaError("`serve` can only be used inside a function"))
+			}
+			val := EvaluateExpression(s.Value, env, ctx)
+			return valueResult(val)
 		}
 		val := EvaluateExpression(s.Value, env, ctx)
 		return returnResult(val)

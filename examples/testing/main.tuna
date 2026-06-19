@@ -1,40 +1,9 @@
-catch counter = 0
+swim tick(hdc: number): void
+   hdc = hdc
 
-swim onClick(): void
-	bubble("button clicked")
+   catch frm as imui.frame("testFrame", 10, 10, 15, 15)
+     catch btn as imui.button("move", "Move")
+   imui.endFrame("testFrame")
 shore
 
-swim test(hdc: number): void
-   catch title as imui.text("title", "Testing")
-   title.textColor("#FF0000")
-   title.text("New Title")
-shore
-
-></
-swim old(hdc: number): void
-   imui.text("title", "Simple IMUI Example")
-   imui.text("spacer", " ")
-
-   imui.text("counter_label", "Counter: " + toString(counter))
-
-   imui.slider("test", 0, 100, 0)
-
-   imui.frame("testing", 50, 50, 150, 250)
-      imui.button("inside_frame", "yay")
-   imui.endFrame("testing")
-
-   if imui.button("inc_btn", "Increment")
-      counter++
-   shore
-
-   if imui.button("dec_btn", "Decrement")
-   	counter--
-   shore
-
-   if imui.button("reset_btn", "Reset")
-      counter = 0
-   shore
-shore
-/>
-
-imui.createWindow("System test", 400, 300, test)
+imui.createWindow("Test", 300, 300, tick)

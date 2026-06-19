@@ -6,6 +6,9 @@ import (
 	"tunascript/src/lexer"
 	tunaparser "tunascript/src/parser"
 	"tunascript/src/interpreter"
+	"tunascript/src/analyzer"
+	"tunascript/src/directives"
+	"tunascript/src/repl"
 )
 
 func runFile(args []string) {
@@ -23,6 +26,7 @@ func runFile(args []string) {
 	}
 
 	source := string(bytes)
+	cfg := directives.Extract(source)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -35,15 +39,31 @@ func runFile(args []string) {
 		}
 	}()
 
-	tokens := lexer.Lex(source)
-	tree := tunaparser.Parse(tokens)
-	interpreter.Interpret(tree, filePath)
+	tokens := lexer.Lex(source, filePath)
+	tree := tunaparser.Parse(tokens, filePath)
+
+	diagnostics := analyzer.Analyze(tree, cfg, filePath)
+	hasErrors := false
+	for _, d := range diagnostics {
+		fmt.Fprintln(os.Stderr, d.String())
+		if d.Level == analyzer.DiagError {
+			hasErrors = true
+		}
+	}
+	if hasErrors {
+		os.Exit(1)
+	}
+
+	interpreter.Interpret(tree, filePath, cfg)
 }
+
+const Version = "0.1.0"
 
 func main() {
 	args := os.Args[1:]
 
 	if len(args) == 0 {
+		fmt.Printf("Tunascript v%s\n", Version)
 		printUsage()
 		return
 	}
@@ -53,14 +73,18 @@ func main() {
 	switch command {
 	case "run":
 		runFile(args[1:])
+	case "serve":
+		repl.Start()
 	default:
 		runFile(args)
 	}
 }
 
 func printUsage() {
-	fmt.Println(`Tunascript CLI
-Usage:
-  tuna <file.tuna>   Run a script
-  tuna serve              Start REPL (not implemented)`)
+	fmt.Printf(`Usage:
+  tuna                    Print version and usage
+  tuna <file.tuna>       Run a script
+  tuna run <file.tuna>   Run a script
+  tuna serve             Start interactive REPL
+`)
 }

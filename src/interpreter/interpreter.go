@@ -4,6 +4,7 @@ import (
 	tunaparser "tunascript/src/parser"
 
 	"tunascript/src/lexer"
+	"tunascript/src/directives"
 	"path/filepath"
 	"fmt"
 	"os"
@@ -25,7 +26,16 @@ func valueResult(v RuntimeValue) EvalResult {
 	return EvalResult{Value: v}
 }
 
+var currentFilePath string
+
+func SetCurrentFile(path string) {
+	currentFilePath = path
+}
+
 func TunaError(msg string) string {
+	if currentFilePath != "" {
+		return fmt.Sprintf("\033[31m[Tunascript Error]\033[0m %s: %s", currentFilePath, msg)
+	}
 	return fmt.Sprintf("\033[31m[Tunascript Error]\033[0m %s", msg)
 }
 
@@ -195,8 +205,13 @@ func CallFunctionValue(f FunctionValue, args []RuntimeValue, env *Environment, c
 	return RuntimeValue{Kind: NullVal}
 }
 
-func Interpret(block tunaparser.BlockStatement, filePath string) RuntimeValue {
+func Interpret(block tunaparser.BlockStatement, filePath string, cfg directives.Config) RuntimeValue {
+	if cfg.Mode == directives.ModeCompile {
+		panic(TunaError("compile mode requested ('>?? !compile') but no compiler is available"))
+	}
+
 	absPath, _ := filepath.Abs(filePath)
+	SetCurrentFile(absPath)
 
 	rootDir := filepath.Dir(absPath)
 	env := NewEnvironment(nil)
@@ -207,6 +222,7 @@ func Interpret(block tunaparser.BlockStatement, filePath string) RuntimeValue {
 		moduleCache:  map[string]map[string]RuntimeValue{},
 		builtinNames: builtinNames,
 		rootDir:      rootDir,
+		Cfg:          cfg,
 	}
 
 	registerBuiltins(env, ctx)
@@ -238,6 +254,14 @@ func EvaluateBlock(block tunaparser.BlockStatement, env *Environment, ctx ExecCo
 		}
 	}
 	return result
+}
+
+func NewREPLEnvironment() *Environment {
+	env := NewEnvironment(nil)
+	cfg := directives.Config{}
+	ctx := ExecContext{Cfg: cfg}
+	registerBuiltins(env, ctx)
+	return env
 }
 
 func NewRuntimeEnvironmentWithRoot(filePath string, rootDir string, ctx ExecContext) *Environment {
@@ -306,8 +330,8 @@ func loadModule(importPath string, ctx ExecContext) map[string]RuntimeValue {
 			absPath, err)))
 	}
 
-	tokens := lexer.Lex(string(src))
-	block := tunaparser.Parse(tokens)
+	tokens := lexer.Lex(string(src), absPath)
+	block := tunaparser.Parse(tokens, absPath)
 
 	exports := executeModule(block, absPath, ctx)
 
@@ -316,6 +340,7 @@ func loadModule(importPath string, ctx ExecContext) map[string]RuntimeValue {
 }
 
 func executeModule(block tunaparser.BlockStatement, absPath string, parentCtx ExecContext) map[string]RuntimeValue {
+	SetCurrentFile(absPath)
 	ctx := ExecContext{
 		filePath:     absPath,
 		moduleCache:  parentCtx.moduleCache,

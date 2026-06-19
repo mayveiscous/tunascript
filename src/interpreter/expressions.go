@@ -124,6 +124,19 @@ func EvaluateExpression(expr tunaparser.Expression, env *Environment, ctx ExecCo
 		val := EvaluateExpression(e.Expr, env, ctx)
 		return RuntimeValue{Kind: StringVal, Value: val.Kind.String()}
 
+	case tunaparser.FunctionExpression:
+		closureEnv := NewEnvironment(env)
+		return RuntimeValue{
+			Kind: FunctionVal,
+			Value: FunctionValue{
+				Name:       "",
+				Parameters: e.Parameters,
+				ReturnType: e.ReturnType,
+				Body:       e.Body,
+				Env:        closureEnv,
+			},
+		}
+
 	default:
 		panic(TunaError(fmt.Sprintf("unknown expression type: %T", expr)))
 	}
@@ -235,12 +248,30 @@ func EvaluateBinaryExpression(e tunaparser.BinaryExpression, env *Environment, c
 		}
 	}
 
+	if left.Kind == ArrayVal && right.Kind == ArrayVal {
+		switch e.Operator.Kind {
+		case lexer.EQUALS:
+			return RuntimeValue{Kind: BoolVal, Value: runtimeDeepEqual(left, right)}
+		case lexer.NOT_EQUALS:
+			return RuntimeValue{Kind: BoolVal, Value: !runtimeDeepEqual(left, right)}
+		}
+	}
+
+	if left.Kind == ObjectVal && right.Kind == ObjectVal {
+		switch e.Operator.Kind {
+		case lexer.EQUALS:
+			return RuntimeValue{Kind: BoolVal, Value: runtimeDeepEqual(left, right)}
+		case lexer.NOT_EQUALS:
+			return RuntimeValue{Kind: BoolVal, Value: !runtimeDeepEqual(left, right)}
+		}
+	}
+
 	if e.Operator.Kind == lexer.EQUALS {
 		return RuntimeValue{Kind: BoolVal, Value: left.Kind == right.Kind}
-  }
-  if e.Operator.Kind == lexer.NOT_EQUALS {
+	}
+	if e.Operator.Kind == lexer.NOT_EQUALS {
 		return RuntimeValue{Kind: BoolVal, Value: left.Kind != right.Kind}
-  }
+	}
 
 	panic(TunaError(fmt.Sprintf("operator '%s' cannot be applied to types '%s' and '%s'",
 		e.Operator.Value, left.Kind, right.Kind)))
@@ -436,4 +467,50 @@ func EvaluatePostfixExpression(e tunaparser.PostfixExpression, env *Environment,
 	}
 
 	return current
+}
+
+func runtimeDeepEqual(a, b RuntimeValue) bool {
+	if a.Kind != b.Kind {
+		return false
+	}
+	switch a.Kind {
+	case NumberVal:
+		return a.Value.(float64) == b.Value.(float64)
+	case StringVal:
+		return a.Value.(string) == b.Value.(string)
+	case BoolVal:
+		return a.Value.(bool) == b.Value.(bool)
+	case NullVal:
+		return true
+	case ArrayVal:
+		aa := a.Value.([]RuntimeValue)
+		bb := b.Value.([]RuntimeValue)
+		if len(aa) != len(bb) {
+			return false
+		}
+		for i := range aa {
+			if !runtimeDeepEqual(aa[i], bb[i]) {
+				return false
+			}
+		}
+		return true
+	case ObjectVal:
+		oa := a.Value.(map[string]RuntimeValue)
+		ob := b.Value.(map[string]RuntimeValue)
+		if len(oa) != len(ob) {
+			return false
+		}
+		for k, va := range oa {
+			vb, ok := ob[k]
+			if !ok {
+				return false
+			}
+			if !runtimeDeepEqual(va, vb) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
 }

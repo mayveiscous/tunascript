@@ -8,14 +8,14 @@ func defaultHandler(kind TokenKind, value string) regexHandler {
 	return func(lex *lexer, regex *regexp.Regexp) {
 		line, col := lex.line, lex.col
 		lex.advanceN(len(value))
-		lex.push(NewToken(kind, value, line, col))
+		lex.push(NewToken(kind, value, line, col, lex.filePath))
 	}
 }
 
 func numberHandler(lex *lexer, regex *regexp.Regexp) {
 	match := regex.FindString(lex.remainder())
 	line, col := lex.line, lex.col
-	lex.push(NewToken(NUMBER, match, line, col))
+	lex.push(NewToken(NUMBER, match, line, col, lex.filePath))
 	lex.advanceN(len(match))
 }
 
@@ -33,9 +33,9 @@ func symbolHandler(lex *lexer, regex *regexp.Regexp) {
 	value := regex.FindString(lex.remainder())
 	line, col := lex.line, lex.col
 	if kind, exists := reserved_lu[value]; exists {
-		lex.push(NewToken(kind, value, line, col))
+		lex.push(NewToken(kind, value, line, col, lex.filePath))
 	} else {
-		lex.push(NewToken(IDENT, value, line, col))
+		lex.push(NewToken(IDENT, value, line, col, lex.filePath))
 	}
 	lex.advanceN(len(value))
 }
@@ -69,6 +69,6 @@ func stringHandler(lex *lexer, regex *regexp.Regexp) {
 	}
 	stringLiteral := string(buf)
 	line, col := lex.line, lex.col
-	lex.push(NewToken(STRING, stringLiteral, line, col))
+	lex.push(NewToken(STRING, stringLiteral, line, col, lex.filePath))
 	lex.advanceN(match[1])
 }

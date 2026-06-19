@@ -30,7 +30,6 @@ type Widget struct {
 
 	// ---- Checkbox ----
 	CheckColor  uint32; HasCheckColor  bool
-	BorderColor uint32; HasBorderColor bool
 	OnChange    func(bool)   // checkbox, toggle
 
 	// ---- Toggle ----
@@ -46,8 +45,11 @@ type Widget struct {
 	OnSlide     func(float64)
 
 	// ---- Shared ----
-	TextColor uint32; HasTextColor bool
-	Label     string; HasLabel     bool
+	TextColor      uint32; HasTextColor      bool
+	BorderColor    uint32; HasBorderColor    bool
+	BorderThickness int;   HasBorderThickness bool
+	CornerRadius   int;    HasCornerRadius   bool
+	Label          string; HasLabel          bool
 
 	// ---- Frame ----
 	BgColor    uint32; HasBgColor    bool
@@ -56,6 +58,43 @@ type Widget struct {
 
 	// Frame geometry (stored so EndFrame can restore cursor correctly)
 	X, Y, W, H int
+
+	// ---- Override positioning (set by .move()) ----
+	OverrideX, OverrideY int
+	HasOverrideXY        bool
+
+	// ---- Anchor point (0-1 normalized, set by .setAnchor()) ----
+	// (0,0) = top-left (default), (0.5,0.5) = center, (1,1) = bottom-right
+	AnchorX, AnchorY float64
+	HasAnchor        bool
+}
+
+// Move sets an override position, bypassing auto-layout next frame.
+func (w *Widget) Move(x, y int) {
+	w.OverrideX = x
+	w.OverrideY = y
+	w.HasOverrideXY = true
+}
+
+// SetAnchor sets the anchor point for positioning.
+// (0,0) = top-left corner, (0.5,0.5) = center, (1,1) = bottom-right.
+func (w *Widget) SetAnchor(nx, ny float64) {
+	w.AnchorX = nx
+	w.AnchorY = ny
+	w.HasAnchor = true
+}
+
+// SetSize overrides the widget width and height.
+// For frames this also updates the W/H geometry fields.
+func (w *Widget) SetSize(width, height int) {
+	w.Width = width
+	w.HasWidth = true
+	w.Height = height
+	w.HasHeight = true
+	if w.Kind == "frame" {
+		w.W = width
+		w.H = height
+	}
 }
 
 // color helper — parse and mark a named color field
@@ -283,6 +322,10 @@ var (
 	procDeleteObj    = gdi32.NewProc("DeleteObject")
 	procSetTextColor = gdi32.NewProc("SetTextColor")
 	procSetBkMode    = gdi32.NewProc("SetBkMode")
+	procCreatePen    = gdi32.NewProc("CreatePen")
+	procSelectObj    = gdi32.NewProc("SelectObject")
+	procRoundRect = gdi32.NewProc("RoundRect")
+	procRectangle = gdi32.NewProc("Rectangle")
 )
 
 type RECT struct{ Left, Top, Right, Bottom int32 }
@@ -316,9 +359,13 @@ func CreateWindow(title string, width, height int, runScriptTick ScriptCallback)
 		LpfnWndProc: syscall.NewCallback(func(hwnd uintptr, msg uint32, wparam, lparam uintptr) uintptr {
 			switch msg {
 			case WM_MOUSEMOVE:
-				State.MouseX = int(int16(lparam & 0xFFFF))
-				State.MouseY = int(int16((lparam >> 16) & 0xFFFF))
-				procInvalidate.Call(hwnd, 0, 1)
+				newX := int(int16(lparam & 0xFFFF))
+				newY := int(int16((lparam >> 16) & 0xFFFF))
+				if newX != State.MouseX || newY != State.MouseY {
+					State.MouseX = newX
+					State.MouseY = newY
+					procInvalidate.Call(hwnd, 0, 1)
+				}
 			case WM_LBUTTONDOWN:
 				State.MouseDown = true
 				procInvalidate.Call(hwnd, 0, 1)
@@ -364,6 +411,51 @@ func createSolidBrush(color uint32) uintptr { ret, _, _ := procBrush.Call(uintpt
 func deleteObject(obj uintptr)              { procDeleteObj.Call(obj) }
 func fillRect(hdc uintptr, rc *RECT, br uintptr)  { procFillRect.Call(hdc, uintptr(unsafe.Pointer(rc)), br) }
 func frameRect(hdc uintptr, rc *RECT, br uintptr) { procFrameRect.Call(hdc, uintptr(unsafe.Pointer(rc)), br) }
+func createPen(style, width int, color uint32) uintptr {
+	ret, _, _ := procCreatePen.Call(uintptr(style), uintptr(width), uintptr(color))
+	return ret
+}
+func selectObject(hdc uintptr, obj uintptr) uintptr {
+	ret, _, _ := procSelectObj.Call(hdc, obj)
+	return ret
+}
+
+// drawFilledRect draws a filled rect with optional border and rounded corners.
+// Uses pen-based GDI when borderThickness>1 or cornerRadius>0; otherwise falls
+// back to the simpler FillRect+FrameRect approach.
+func drawFilledRect(hdc uintptr, x, y, w, h int, fillColor, borderColor uint32, borderThickness, cornerRadius int) {
+	if cornerRadius > 0 || borderThickness > 1 {
+		pen := createPen(4, borderThickness, borderColor) // PS_INSIDEFRAME
+		brush := createSolidBrush(fillColor)
+		oldPen := selectObject(hdc, pen)
+		oldBrush := selectObject(hdc, brush)
+		if cornerRadius > 0 {
+			procRoundRect.Call(hdc, uintptr(x), uintptr(y), uintptr(x+w), uintptr(y+h),
+				uintptr(cornerRadius), uintptr(cornerRadius))
+		} else {
+			procRectangle.Call(hdc, uintptr(x), uintptr(y), uintptr(x+w), uintptr(y+h))
+		}
+		selectObject(hdc, oldPen)
+		selectObject(hdc, oldBrush)
+		deleteObject(pen)
+		deleteObject(brush)
+	} else if borderThickness <= 0 {
+		rc := RECT{int32(x), int32(y), int32(x+w), int32(y+h)}
+		fillBrush := createSolidBrush(fillColor)
+		fillRect(hdc, &rc, fillBrush)
+		deleteObject(fillBrush)
+	} else {
+		rc := RECT{int32(x), int32(y), int32(x+w), int32(y+h)}
+		fillBrush := createSolidBrush(fillColor)
+		fillRect(hdc, &rc, fillBrush)
+		deleteObject(fillBrush)
+		if borderColor != 0 {
+			borderBrush := createSolidBrush(borderColor)
+			frameRect(hdc, &rc, borderBrush)
+			deleteObject(borderBrush)
+		}
+	}
+}
 func drawRawText(hdc uintptr, txt string, x, y int) {
 	ptr, _ := syscall.UTF16PtrFromString(txt)
 	procTextOutW.Call(hdc, uintptr(x), uintptr(y), uintptr(unsafe.Pointer(ptr)), uintptr(len(txt)))
