@@ -11,9 +11,10 @@ import (
 	"time"
 	"golang.org/x/term"
 	"encoding/json"
+	"tunascript/src/imui"
 )
 
-func registerBuiltins(env *Environment) {
+func registerBuiltins(env *Environment, ctx ExecContext) {
 	env.Set("bubble", RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
 		Name: "bubble",
 		Call: func(args []RuntimeValue) RuntimeValue {
@@ -84,26 +85,25 @@ func registerBuiltins(env *Environment) {
 
 	jsonNS := map[string]RuntimeValue{
 		"encode": {Kind: FunctionVal, Value: NativeFunction{Name: "encode", Call: func(args []RuntimeValue) RuntimeValue {
-			 assertArgCount("json.encode", args, 1)
-			 native := runtimeToNative(args[0])
-			 b, err := json.MarshalIndent(native, "", "  ")
-			 if err != nil {
-				  panic(TunaError(fmt.Sprintf("json.encode() failed: %s", err)))
-			 }
-			 return RuntimeValue{Kind: StringVal, Value: string(b)}
+			assertArgCount("json.encode", args, 1)
+			native := runtimeToNative(args[0])
+			b, err := json.MarshalIndent(native, "", "  ")
+			if err != nil {
+				panic(TunaError(fmt.Sprintf("json.encode() failed: %s", err)))
+			}
+			return RuntimeValue{Kind: StringVal, Value: string(b)}
 		}}},
-  
 		"decode": {Kind: FunctionVal, Value: NativeFunction{Name: "decode", Call: func(args []RuntimeValue) RuntimeValue {
-			 assertArgCount("json.decode", args, 1)
-			 assertKind("json.decode", args[0], StringVal)
-			 var raw any
-			 if err := json.Unmarshal([]byte(args[0].Value.(string)), &raw); err != nil {
-				  panic(TunaError(fmt.Sprintf("json.decode() failed: %s", err)))
-			 }
-			 return nativeToRuntime(raw)
+			assertArgCount("json.decode", args, 1)
+			assertKind("json.decode", args[0], StringVal)
+			var raw any
+			if err := json.Unmarshal([]byte(args[0].Value.(string)), &raw); err != nil {
+				panic(TunaError(fmt.Sprintf("json.decode() failed: %s", err)))
+			}
+			return nativeToRuntime(raw)
 		}}},
-  }
-  env.Set("json", RuntimeValue{Kind: ObjectVal, Value: jsonNS})
+	}
+	env.Set("json", RuntimeValue{Kind: ObjectVal, Value: jsonNS})
 
 	mathNS := map[string]RuntimeValue{
 		"floor": {Kind: FunctionVal, Value: NativeFunction{Name: "floor", Call: func(args []RuntimeValue) RuntimeValue {
@@ -415,218 +415,629 @@ func registerBuiltins(env *Environment) {
 
 	tuiNS := map[string]RuntimeValue{
 		"clear": {Kind: FunctionVal, Value: NativeFunction{Name: "clear", Call: func(args []RuntimeValue) RuntimeValue {
-			 fmt.Print("\033[H\033[2J")
-			 return RuntimeValue{Kind: NullVal}
+			fmt.Print("\033[H\033[2J")
+			return RuntimeValue{Kind: NullVal}
 		}}},
-  
 		"move": {Kind: FunctionVal, Value: NativeFunction{Name: "move", Call: func(args []RuntimeValue) RuntimeValue {
-			 assertArgCount("tui.move", args, 2)
-			 assertKind("tui.move", args[0], NumberVal)
-			 assertKind("tui.move", args[1], NumberVal)
-			 row := int(args[0].Value.(float64))
-			 col := int(args[1].Value.(float64))
-			 fmt.Printf("\033[%d;%dH", row, col)
-			 return RuntimeValue{Kind: NullVal}
+			assertArgCount("tui.move", args, 2)
+			assertKind("tui.move", args[0], NumberVal)
+			assertKind("tui.move", args[1], NumberVal)
+			row := int(args[0].Value.(float64))
+			col := int(args[1].Value.(float64))
+			fmt.Printf("\033[%d;%dH", row, col)
+			return RuntimeValue{Kind: NullVal}
 		}}},
-  
 		"color": {Kind: FunctionVal, Value: NativeFunction{Name: "color", Call: func(args []RuntimeValue) RuntimeValue {
-			 assertArgCount("tui.color", args, 2)
-			 assertKind("tui.color", args[0], StringVal)
-			 assertKind("tui.color", args[1], StringVal)
-			 colors := map[string]string{
-				  "black":   "\033[30m",
-				  "red":     "\033[31m",
-				  "green":   "\033[32m",
-				  "yellow":  "\033[33m",
-				  "blue":    "\033[34m",
-				  "magenta": "\033[35m",
-				  "cyan":    "\033[36m",
-				  "white":   "\033[37m",
-				  "bold":    "\033[1m",
-				  "dim":     "\033[2m",
-			 }
-			 code, ok := colors[args[0].Value.(string)]
-			 if !ok {
-				  panic(TunaError(fmt.Sprintf("tui.color() unknown color '%s'", args[0].Value.(string))))
-			 }
-			 return RuntimeValue{Kind: StringVal, Value: code + args[1].Value.(string) + "\033[0m"}
+			assertArgCount("tui.color", args, 2)
+			assertKind("tui.color", args[0], StringVal)
+			assertKind("tui.color", args[1], StringVal)
+			colors := map[string]string{
+				"black":   "\033[30m",
+				"red":     "\033[31m",
+				"green":   "\033[32m",
+				"yellow":  "\033[33m",
+				"blue":    "\033[34m",
+				"magenta": "\033[35m",
+				"cyan":    "\033[36m",
+				"white":   "\033[37m",
+				"bold":    "\033[1m",
+				"dim":     "\033[2m",
+			}
+			code, ok := colors[args[0].Value.(string)]
+			if !ok {
+				panic(TunaError(fmt.Sprintf("tui.color() unknown color '%s'", args[0].Value.(string))))
+			}
+			return RuntimeValue{Kind: StringVal, Value: code + args[1].Value.(string) + "\033[0m"}
 		}}},
-  
 		"bar": {Kind: FunctionVal, Value: NativeFunction{Name: "bar", Call: func(args []RuntimeValue) RuntimeValue {
-			 assertArgCount("tui.bar", args, 3)
-			 assertKind("tui.bar", args[0], NumberVal)
-			 assertKind("tui.bar", args[1], NumberVal)
-			 assertKind("tui.bar", args[2], NumberVal)
-			 current := args[0].Value.(float64)
-			 max     := args[1].Value.(float64)
-			 width   := int(args[2].Value.(float64))
-			 if max <= 0 || math.IsInf(max, 1) {
-				  return RuntimeValue{Kind: StringVal, Value: "\033[36m" + strings.Repeat("█", width) + "\033[0m"}
-			 }
-			 filled := int(math.Round((current / max) * float64(width)))
-			 if filled < 0 { filled = 0 }
-			 if filled > width { filled = width }
-			 empty := width - filled
-			 color := "\033[32m" // green
-			 if current/max < 0.5 { color = "\033[33m" }
-			 if current/max < 0.25 { color = "\033[31m" }
-			 return RuntimeValue{Kind: StringVal,
-				  Value: color + strings.Repeat("█", filled) + "\033[2m" + strings.Repeat("░", empty) + "\033[0m"}
+			assertArgCount("tui.bar", args, 3)
+			assertKind("tui.bar", args[0], NumberVal)
+			assertKind("tui.bar", args[1], NumberVal)
+			assertKind("tui.bar", args[2], NumberVal)
+			current := args[0].Value.(float64)
+			max     := args[1].Value.(float64)
+			width   := int(args[2].Value.(float64))
+			if max <= 0 || math.IsInf(max, 1) {
+				return RuntimeValue{Kind: StringVal, Value: "\033[36m" + strings.Repeat("█", width) + "\033[0m"}
+			}
+			filled := int(math.Round((current / max) * float64(width)))
+			if filled < 0 { filled = 0 }
+			if filled > width { filled = width }
+			empty := width - filled
+			color := "\033[32m"
+			if current/max < 0.5 { color = "\033[33m" }
+			if current/max < 0.25 { color = "\033[31m" }
+			return RuntimeValue{Kind: StringVal,
+				Value: color + strings.Repeat("█", filled) + "\033[2m" + strings.Repeat("░", empty) + "\033[0m"}
 		}}},
-  
 		"print": {Kind: FunctionVal, Value: NativeFunction{Name: "print", Call: func(args []RuntimeValue) RuntimeValue {
-			 parts := make([]string, len(args))
-			 for i, arg := range args {
-				  parts[i] = nativeToString(arg)
-			 }
-			 fmt.Print(strings.Join(parts, " "))
-			 return RuntimeValue{Kind: NullVal}
+			parts := make([]string, len(args))
+			for i, arg := range args {
+				parts[i] = nativeToString(arg)
+			}
+			fmt.Print(strings.Join(parts, " "))
+			return RuntimeValue{Kind: NullVal}
 		}}},
-  
 		"println": {Kind: FunctionVal, Value: NativeFunction{Name: "println", Call: func(args []RuntimeValue) RuntimeValue {
-			 parts := make([]string, len(args))
-			 for i, arg := range args {
-				  parts[i] = nativeToString(arg)
-			 }
-			 fmt.Println(strings.Join(parts, " "))
-			 return RuntimeValue{Kind: NullVal}
+			parts := make([]string, len(args))
+			for i, arg := range args {
+				parts[i] = nativeToString(arg)
+			}
+			fmt.Println(strings.Join(parts, " "))
+			return RuntimeValue{Kind: NullVal}
 		}}},
-  
 		"input": {Kind: FunctionVal, Value: NativeFunction{Name: "input", Call: func(args []RuntimeValue) RuntimeValue {
-			 if len(args) == 1 {
-				  assertKind("tui.input", args[0], StringVal)
-				  fmt.Print(args[0].Value.(string))
-			 }
-			 var line string
-			 fmt.Scanln(&line)
-			 return RuntimeValue{Kind: StringVal, Value: line}
+			if len(args) == 1 {
+				assertKind("tui.input", args[0], StringVal)
+				fmt.Print(args[0].Value.(string))
+			}
+			var line string
+			fmt.Scanln(&line)
+			return RuntimeValue{Kind: StringVal, Value: line}
 		}}},
-  
 		"sleep": {Kind: FunctionVal, Value: NativeFunction{Name: "sleep", Call: func(args []RuntimeValue) RuntimeValue {
-			 assertArgCount("tui.sleep", args, 1)
-			 assertKind("tui.sleep", args[0], NumberVal)
-			 ms := args[0].Value.(float64)
-			 time.Sleep(time.Duration(ms) * time.Millisecond)
-			 return RuntimeValue{Kind: NullVal}
+			assertArgCount("tui.sleep", args, 1)
+			assertKind("tui.sleep", args[0], NumberVal)
+			ms := args[0].Value.(float64)
+			time.Sleep(time.Duration(ms) * time.Millisecond)
+			return RuntimeValue{Kind: NullVal}
 		}}},
-  
 		"width": {Kind: FunctionVal, Value: NativeFunction{Name: "width", Call: func(args []RuntimeValue) RuntimeValue {
-			 width, _, err := term.GetSize(int(os.Stdout.Fd()))
-			 if err != nil { width = 80 }
-			 return RuntimeValue{Kind: NumberVal, Value: float64(width)}
+			width, _, err := term.GetSize(int(os.Stdout.Fd()))
+			if err != nil { width = 80 }
+			return RuntimeValue{Kind: NumberVal, Value: float64(width)}
 		}}},
-  
 		"height": {Kind: FunctionVal, Value: NativeFunction{Name: "height", Call: func(args []RuntimeValue) RuntimeValue {
-			 _, height, err := term.GetSize(int(os.Stdout.Fd()))
-			 if err != nil { height = 24 }
-			 return RuntimeValue{Kind: NumberVal, Value: float64(height)}
+			_, height, err := term.GetSize(int(os.Stdout.Fd()))
+			if err != nil { height = 24 }
+			return RuntimeValue{Kind: NumberVal, Value: float64(height)}
 		}}},
-  }
-  env.Set("tui", RuntimeValue{Kind: ObjectVal, Value: tuiNS})
+	}
+	env.Set("tui", RuntimeValue{Kind: ObjectVal, Value: tuiNS})
 
-  osNS := map[string]RuntimeValue{
-	"read": {Kind: FunctionVal, Value: NativeFunction{Name: "read", Call: func(args []RuntimeValue) RuntimeValue {
-		 assertArgCount("os.read", args, 1)
-		 assertKind("os.read", args[0], StringVal)
-		 data, err := os.ReadFile(args[0].Value.(string))
-		 if err != nil {
-			  panic(TunaError(fmt.Sprintf("os.read() could not read '%s': %s", args[0].Value.(string), err)))
-		 }
-		 return RuntimeValue{Kind: StringVal, Value: string(data)}
-	}}},
-
-	"write": {Kind: FunctionVal, Value: NativeFunction{Name: "write", Call: func(args []RuntimeValue) RuntimeValue {
-		 assertArgCount("os.write", args, 2)
-		 assertKind("os.write", args[0], StringVal)
-		 assertKind("os.write", args[1], StringVal)
-		 err := os.WriteFile(args[0].Value.(string), []byte(args[1].Value.(string)), 0644)
-		 if err != nil {
-			  panic(TunaError(fmt.Sprintf("os.write() could not write '%s': %s", args[0].Value.(string), err)))
-		 }
-		 return RuntimeValue{Kind: NullVal}
-	}}},
-
-	"open": {Kind: FunctionVal, Value: NativeFunction{Name: "open", Call: func(args []RuntimeValue) RuntimeValue {
-		 assertArgCount("os.open", args, 1)
-		 assertKind("os.open", args[0], StringVal)
-		 f, err := os.OpenFile(args[0].Value.(string), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
-		 if err != nil {
-			  panic(TunaError(fmt.Sprintf("os.open() could not open '%s': %s", args[0].Value.(string), err)))
-		 }
-
-		 fileObj := map[string]RuntimeValue{
-			  "path":   {Kind: StringVal, Value: args[0].Value.(string)},
-			  "__fd":   {Kind: FunctionVal, Value: NativeFunction{Name: "__fd", Call: func(_ []RuntimeValue) RuntimeValue {
-					_ = f
-					return RuntimeValue{Kind: NullVal}
-			  }}},
-		 }
-		 fileObj["__fd"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
-			  Name: "__fd",
-			  Call: func(writeArgs []RuntimeValue) RuntimeValue {
+	osNS := map[string]RuntimeValue{
+		"read": {Kind: FunctionVal, Value: NativeFunction{Name: "read", Call: func(args []RuntimeValue) RuntimeValue {
+			assertArgCount("os.read", args, 1)
+			assertKind("os.read", args[0], StringVal)
+			data, err := os.ReadFile(args[0].Value.(string))
+			if err != nil {
+				panic(TunaError(fmt.Sprintf("os.read() could not read '%s': %s", args[0].Value.(string), err)))
+			}
+			return RuntimeValue{Kind: StringVal, Value: string(data)}
+		}}},
+		"write": {Kind: FunctionVal, Value: NativeFunction{Name: "write", Call: func(args []RuntimeValue) RuntimeValue {
+			assertArgCount("os.write", args, 2)
+			assertKind("os.write", args[0], StringVal)
+			assertKind("os.write", args[1], StringVal)
+			err := os.WriteFile(args[0].Value.(string), []byte(args[1].Value.(string)), 0644)
+			if err != nil {
+				panic(TunaError(fmt.Sprintf("os.write() could not write '%s': %s", args[0].Value.(string), err)))
+			}
+			return RuntimeValue{Kind: NullVal}
+		}}},
+		"open": {Kind: FunctionVal, Value: NativeFunction{Name: "open", Call: func(args []RuntimeValue) RuntimeValue {
+			assertArgCount("os.open", args, 1)
+			assertKind("os.open", args[0], StringVal)
+			f, err := os.OpenFile(args[0].Value.(string), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+			if err != nil {
+				panic(TunaError(fmt.Sprintf("os.open() could not open '%s': %s", args[0].Value.(string), err)))
+			}
+			fileObj := map[string]RuntimeValue{
+				"path": {Kind: StringVal, Value: args[0].Value.(string)},
+			}
+			fileObj["__fd"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
+				Name: "__fd",
+				Call: func(writeArgs []RuntimeValue) RuntimeValue {
 					if len(writeArgs) == 0 {
-						 return RuntimeValue{Kind: NullVal}
+						return RuntimeValue{Kind: NullVal}
 					}
 					assertKind("file.write", writeArgs[0], StringVal)
 					_, werr := f.WriteString(writeArgs[0].Value.(string))
 					if werr != nil {
-						 panic(TunaError(fmt.Sprintf("file write error: %s", werr)))
+						panic(TunaError(fmt.Sprintf("file write error: %s", werr)))
 					}
 					return RuntimeValue{Kind: NullVal}
-			  },
-		 }}
-		 fileObj["__close"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
-			  Name: "__close",
-			  Call: func(_ []RuntimeValue) RuntimeValue {
+				},
+			}}
+			fileObj["__close"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
+				Name: "__close",
+				Call: func(_ []RuntimeValue) RuntimeValue {
 					f.Close()
 					return RuntimeValue{Kind: NullVal}
-			  },
-		 }}
-		 return RuntimeValue{Kind: ObjectVal, Value: fileObj}
-	}}},
-
-	"append": {Kind: FunctionVal, Value: NativeFunction{Name: "append", Call: func(args []RuntimeValue) RuntimeValue {
-		assertArgCount("os.append", args, 2)
-		assertKind("os.append", args[0], StringVal)
-		assertKind("os.append", args[1], StringVal)
-		f, err := os.OpenFile(args[0].Value.(string), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-		if err != nil {
-			 panic(TunaError(fmt.Sprintf("os.append() could not open '%s': %s", args[0].Value.(string), err)))
-		}
-		defer f.Close()
-		_, err = f.WriteString(args[1].Value.(string))
-		if err != nil {
-			 panic(TunaError(fmt.Sprintf("os.append() could not write to '%s': %s", args[0].Value.(string), err)))
-		}
-		return RuntimeValue{Kind: NullVal}
-  }}},
-
-	"close": {Kind: FunctionVal, Value: NativeFunction{Name: "close", Call: func(args []RuntimeValue) RuntimeValue {
-		 assertArgCount("os.close", args, 1)
-		 assertKind("os.close", args[0], ObjectVal)
-		 props := args[0].Value.(map[string]RuntimeValue)
-		 closer, ok := props["__close"]
-		 if !ok {
-			  panic(TunaError("os.close() argument is not a file handle"))
-		 }
-		 closer.Value.(NativeFunction).Call([]RuntimeValue{})
-		 return RuntimeValue{Kind: NullVal}
-	}}},
-
-	"clock": {Kind: FunctionVal, Value: NativeFunction{Name: "clock", Call: func(args []RuntimeValue) RuntimeValue {
-		 return RuntimeValue{Kind: NumberVal, Value: float64(time.Now().UnixMilli())}
-	}}},
-
-	"args": {Kind: FunctionVal, Value: NativeFunction{Name: "args", Call: func(args []RuntimeValue) RuntimeValue {
-		 osArgs := os.Args
-		 result := make([]RuntimeValue, len(osArgs))
-		 for i, a := range osArgs {
-			  result[i] = RuntimeValue{Kind: StringVal, Value: a}
-		 }
-		 return RuntimeValue{Kind: ArrayVal, Value: result}
-	}}},
+				},
+			}}
+			return RuntimeValue{Kind: ObjectVal, Value: fileObj}
+		}}},
+		"append": {Kind: FunctionVal, Value: NativeFunction{Name: "append", Call: func(args []RuntimeValue) RuntimeValue {
+			assertArgCount("os.append", args, 2)
+			assertKind("os.append", args[0], StringVal)
+			assertKind("os.append", args[1], StringVal)
+			f, err := os.OpenFile(args[0].Value.(string), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			if err != nil {
+				panic(TunaError(fmt.Sprintf("os.append() could not open '%s': %s", args[0].Value.(string), err)))
+			}
+			defer f.Close()
+			_, err = f.WriteString(args[1].Value.(string))
+			if err != nil {
+				panic(TunaError(fmt.Sprintf("os.append() could not write to '%s': %s", args[0].Value.(string), err)))
+			}
+			return RuntimeValue{Kind: NullVal}
+		}}},
+		"close": {Kind: FunctionVal, Value: NativeFunction{Name: "close", Call: func(args []RuntimeValue) RuntimeValue {
+			assertArgCount("os.close", args, 1)
+			assertKind("os.close", args[0], ObjectVal)
+			props := args[0].Value.(map[string]RuntimeValue)
+			closer, ok := props["__close"]
+			if !ok {
+				panic(TunaError("os.close() argument is not a file handle"))
+			}
+			closer.Value.(NativeFunction).Call([]RuntimeValue{})
+			return RuntimeValue{Kind: NullVal}
+		}}},
+		"clock": {Kind: FunctionVal, Value: NativeFunction{Name: "clock", Call: func(args []RuntimeValue) RuntimeValue {
+			return RuntimeValue{Kind: NumberVal, Value: float64(time.Now().UnixMilli())}
+		}}},
+		"args": {Kind: FunctionVal, Value: NativeFunction{Name: "args", Call: func(args []RuntimeValue) RuntimeValue {
+			osArgs := os.Args
+			result := make([]RuntimeValue, len(osArgs))
+			for i, a := range osArgs {
+				result[i] = RuntimeValue{Kind: StringVal, Value: a}
+			}
+			return RuntimeValue{Kind: ArrayVal, Value: result}
+		}}},
 	}
 	env.Set("os", RuntimeValue{Kind: ObjectVal, Value: osNS})
+
+	// ------------------------------------------------------------------
+	// Helper: wrap a *imui.Widget as a TunaScript object.
+	// Each call builds a fresh map but all closures share the same *Widget
+	// pointer, so property mutations on the returned object persist across
+	// frames just like Luau instance properties.
+	//
+	// colorFields / callbackFields / numFields are which keys to expose;
+	// extra entries (clicked, value, etc.) are passed in via `extra`.
+	// ------------------------------------------------------------------
+	makeWidgetObj := func(
+		widget *imui.Widget,
+		colorFields []string,
+		extra map[string]RuntimeValue,
+	) RuntimeValue {
+		obj := map[string]RuntimeValue{}
+
+		// Color setters: btn.hoverColor = "#FF00FF"
+		// Exposed as one-arg setter functions since TunaScript uses
+		// assignment-style calls through the object system.
+		for _, f := range colorFields {
+			field := f
+			w := widget
+			obj[field] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
+				Name: field,
+				Call: func(cbArgs []RuntimeValue) RuntimeValue {
+					if len(cbArgs) == 1 {
+						w.SetColor(field, cbArgs[0].Value)
+					}
+					return RuntimeValue{Kind: NullVal}
+				},
+			}}
+		}
+
+		// Merge extra (clicked, value, onChange wrappers, etc.)
+		for k, v := range extra {
+			obj[k] = v
+		}
+		return RuntimeValue{Kind: ObjectVal, Value: obj}
+	}
+
+	// Helper: wrap a script function value as a Go func()
+	wrapVoidFn := func(fn RuntimeValue) func() {
+		cEnv := env; cCtx := ctx
+		return func() {
+			switch f := fn.Value.(type) {
+			case NativeFunction:
+				f.Call([]RuntimeValue{})
+			case FunctionValue:
+				CallFunctionValue(f, []RuntimeValue{}, cEnv, cCtx)
+			}
+		}
+	}
+
+	// Helper: wrap a script function value as a Go func(bool)
+	wrapBoolFn := func(fn RuntimeValue) func(bool) {
+		cEnv := env; cCtx := ctx
+		return func(b bool) {
+			arg := []RuntimeValue{{Kind: BoolVal, Value: b}}
+			switch f := fn.Value.(type) {
+			case NativeFunction:
+				f.Call(arg)
+			case FunctionValue:
+				CallFunctionValue(f, arg, cEnv, cCtx)
+			}
+		}
+	}
+
+	// Helper: wrap a script function value as a Go func(float64)
+	wrapNumFn := func(fn RuntimeValue) func(float64) {
+		cEnv := env; cCtx := ctx
+		return func(n float64) {
+			arg := []RuntimeValue{{Kind: NumberVal, Value: n}}
+			switch f := fn.Value.(type) {
+			case NativeFunction:
+				f.Call(arg)
+			case FunctionValue:
+				CallFunctionValue(f, arg, cEnv, cCtx)
+			}
+		}
+	}
+
+	imuiNS := map[string]RuntimeValue{
+		"createWindow": {Kind: FunctionVal, Value: NativeFunction{
+			Name: "createWindow",
+			Call: func(args []RuntimeValue) RuntimeValue {
+
+				assertArgCount("imui.createWindow", args, 4)
+
+				title := args[0].Value.(string)
+				width := int(args[1].Value.(float64))
+				height := int(args[2].Value.(float64))
+				fn := args[3]
+
+				capturedEnv := env
+				capturedCtx := ctx
+		
+				callback := func(hdc uintptr) {
+		
+					switch f := fn.Value.(type) {
+		
+					case NativeFunction:
+						f.Call([]RuntimeValue{
+							{Kind: NumberVal, Value: float64(hdc)},
+						})
+		
+					case FunctionValue:
+						CallFunctionValue(
+							f,
+							[]RuntimeValue{
+								{Kind: NumberVal, Value: float64(hdc)},
+							},
+							capturedEnv,
+							capturedCtx,
+						)
+					}
+				}
+		
+				imui.CreateWindow(title, width, height, callback)
+		
+				return RuntimeValue{Kind: NullVal}
+			},
+		}},
+
+		"setElement": {Kind: FunctionVal, Value: NativeFunction{
+			Name: "setElement",
+			Call: func(args []RuntimeValue) RuntimeValue {
+		
+				assertArgCount("imui.setElement", args, 3)
+				assertKind("imui.setElement", args[0], StringVal)
+				assertKind("imui.setElement", args[1], StringVal)
+		
+				id := args[0].Value.(string)
+				field := args[1].Value.(string)
+		
+				imui.SetElement(id, field, args[2].Value)
+		
+				return RuntimeValue{Kind: NullVal}
+			},
+		}},
+
+		"resetFrame": {Kind: FunctionVal, Value: NativeFunction{Name: "resetFrame", Call: func(args []RuntimeValue) RuntimeValue {
+			assertArgCount("imui.resetFrame", args, 1)
+			assertKind("imui.resetFrame", args[0], NumberVal)
+			imui.ResetFrame(uintptr(args[0].Value.(float64)))
+			return RuntimeValue{Kind: NullVal}
+		}}},
+
+		// -------------------------------------------------------------------
+		// button(id, text) → {
+		//   clicked bool,
+		//   onClick(fn),  onHover(fn),
+		//   idleColor, hoverColor, pressColor, textColor,
+		//   width(n), height(n)
+		// }
+		// -------------------------------------------------------------------
+		"button": {Kind: FunctionVal, Value: NativeFunction{
+			Name: "button",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("imui.button", args, 2)
+				assertKind("imui.button", args[0], StringVal)
+				assertKind("imui.button", args[1], StringVal)
+
+				widget, clicked := imui.Button(args[0].Value.(string), args[1].Value.(string))
+
+				extra := map[string]RuntimeValue{
+					"clicked": {Kind: BoolVal, Value: clicked},
+					// onClick(fn) — installs persistent callback
+					"onClick": {Kind: FunctionVal, Value: NativeFunction{Name: "onClick",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 { widget.OnClick = wrapVoidFn(cbArgs[0]) }
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+					// onHover(fn)
+					"onHover": {Kind: FunctionVal, Value: NativeFunction{Name: "onHover",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 { widget.OnHover = wrapVoidFn(cbArgs[0]) }
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+					// width(n) / height(n)
+					"width": {Kind: FunctionVal, Value: NativeFunction{Name: "width",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 && cbArgs[0].Kind == NumberVal {
+								widget.Width = int(cbArgs[0].Value.(float64))
+								widget.HasWidth = true
+							}
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+					"height": {Kind: FunctionVal, Value: NativeFunction{Name: "height",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 && cbArgs[0].Kind == NumberVal {
+								widget.Height = int(cbArgs[0].Value.(float64))
+								widget.HasHeight = true
+							}
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+				}
+				return makeWidgetObj(widget,
+					[]string{"idleColor", "hoverColor", "pressColor", "textColor"},
+					extra)
+			},
+		}},
+
+		// -------------------------------------------------------------------
+		// text(id, content) → {
+		//   color(c),
+		//   text(s)   ← overrides display string next frame
+		// }
+		// -------------------------------------------------------------------
+		"text": {Kind: FunctionVal, Value: NativeFunction{
+			Name: "text",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("imui.text", args, 2)
+				assertKind("imui.text", args[0], StringVal)
+				assertKind("imui.text", args[1], StringVal)
+
+				widget := imui.Text(args[0].Value.(string), args[1].Value.(string))
+
+				extra := map[string]RuntimeValue{
+					// .text("new string") — overrides displayed text
+					"text": {Kind: FunctionVal, Value: NativeFunction{Name: "text",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 && cbArgs[0].Kind == StringVal {
+								widget.OverrideText    = cbArgs[0].Value.(string)
+								widget.HasOverrideText = true
+							}
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+				}
+				return makeWidgetObj(widget, []string{"textColor"}, extra)
+			},
+		}},
+
+		// -------------------------------------------------------------------
+		// checkbox(id, label) → {
+		//   checked bool,
+		//   onChange(fn(bool)),
+		//   checkColor, borderColor, textColor,
+		//   label(s)
+		// }
+		// -------------------------------------------------------------------
+		"checkbox": {Kind: FunctionVal, Value: NativeFunction{
+			Name: "checkbox",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("imui.checkbox", args, 2)
+				assertKind("imui.checkbox", args[0], StringVal)
+				assertKind("imui.checkbox", args[1], StringVal)
+
+				widget, checked := imui.Checkbox(args[0].Value.(string), args[1].Value.(string))
+
+				extra := map[string]RuntimeValue{
+					"checked": {Kind: BoolVal, Value: checked},
+					"onChange": {Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 { widget.OnChange = wrapBoolFn(cbArgs[0]) }
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+					"label": {Kind: FunctionVal, Value: NativeFunction{Name: "label",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 && cbArgs[0].Kind == StringVal {
+								widget.Label    = cbArgs[0].Value.(string)
+								widget.HasLabel = true
+							}
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+				}
+				return makeWidgetObj(widget,
+					[]string{"checkColor", "borderColor", "textColor"},
+					extra)
+			},
+		}},
+
+		// -------------------------------------------------------------------
+		// toggle(id, label) → {
+		//   on bool,
+		//   onChange(fn(bool)),
+		//   onColor, offColor, knobColor, textColor,
+		//   label(s)
+		// }
+		// -------------------------------------------------------------------
+		"toggle": {Kind: FunctionVal, Value: NativeFunction{
+			Name: "toggle",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("imui.toggle", args, 2)
+				assertKind("imui.toggle", args[0], StringVal)
+				assertKind("imui.toggle", args[1], StringVal)
+
+				widget, on := imui.Toggle(args[0].Value.(string), args[1].Value.(string))
+
+				extra := map[string]RuntimeValue{
+					"on": {Kind: BoolVal, Value: on},
+					"onChange": {Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 { widget.OnChange = wrapBoolFn(cbArgs[0]) }
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+					"label": {Kind: FunctionVal, Value: NativeFunction{Name: "label",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 && cbArgs[0].Kind == StringVal {
+								widget.Label    = cbArgs[0].Value.(string)
+								widget.HasLabel = true
+							}
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+				}
+				return makeWidgetObj(widget,
+					[]string{"onColor", "offColor", "knobColor", "textColor"},
+					extra)
+			},
+		}},
+
+		// -------------------------------------------------------------------
+		// slider(id, min, max, value) → {
+		//   value float,
+		//   onChange(fn(float)),
+		//   trackColor, handleColor,
+		//   min(n), max(n)
+		// }
+		// -------------------------------------------------------------------
+		"slider": {Kind: FunctionVal, Value: NativeFunction{
+			Name: "slider",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("imui.slider", args, 4)
+				assertKind("imui.slider", args[0], StringVal)
+				assertKind("imui.slider", args[1], NumberVal)
+				assertKind("imui.slider", args[2], NumberVal)
+				assertKind("imui.slider", args[3], NumberVal)
+
+				widget, val := imui.Slider(
+					args[0].Value.(string),
+					args[1].Value.(float64),
+					args[2].Value.(float64),
+					args[3].Value.(float64),
+				)
+
+				extra := map[string]RuntimeValue{
+					"value": {Kind: NumberVal, Value: val},
+					"onChange": {Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 { widget.OnSlide = wrapNumFn(cbArgs[0]) }
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+					// Allow overriding min/max at runtime
+					"min": {Kind: FunctionVal, Value: NativeFunction{Name: "min",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 && cbArgs[0].Kind == NumberVal {
+								widget.OverrideMin    = cbArgs[0].Value.(float64)
+								widget.HasOverrideMin = true
+							}
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+					"max": {Kind: FunctionVal, Value: NativeFunction{Name: "max",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 && cbArgs[0].Kind == NumberVal {
+								widget.OverrideMax    = cbArgs[0].Value.(float64)
+								widget.HasOverrideMax = true
+							}
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+				}
+				return makeWidgetObj(widget,
+					[]string{"trackColor", "handleColor"},
+					extra)
+			},
+		}},
+
+		// -------------------------------------------------------------------
+		// frame(id, x, y, w, h) → {
+		//   bgColor, frameBorderColor,
+		//   padding(n)
+		// }
+		// Must be paired with imui.endFrame(id).
+		// -------------------------------------------------------------------
+		"frame": {Kind: FunctionVal, Value: NativeFunction{
+			Name: "frame",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("imui.frame", args, 5)
+				assertKind("imui.frame", args[0], StringVal)
+				assertKind("imui.frame", args[1], NumberVal)
+				assertKind("imui.frame", args[2], NumberVal)
+				assertKind("imui.frame", args[3], NumberVal)
+				assertKind("imui.frame", args[4], NumberVal)
+
+				widget := imui.Frame(
+					args[0].Value.(string),
+					int(args[1].Value.(float64)),
+					int(args[2].Value.(float64)),
+					int(args[3].Value.(float64)),
+					int(args[4].Value.(float64)),
+				)
+
+				extra := map[string]RuntimeValue{
+					"padding": {Kind: FunctionVal, Value: NativeFunction{Name: "padding",
+						Call: func(cbArgs []RuntimeValue) RuntimeValue {
+							if len(cbArgs) == 1 && cbArgs[0].Kind == NumberVal {
+								widget.Padding    = int(cbArgs[0].Value.(float64))
+								widget.HasPadding = true
+							}
+							return RuntimeValue{Kind: NullVal}
+						},
+					}},
+				}
+				return makeWidgetObj(widget,
+					[]string{"bgColor", "frameBorderColor"},
+					extra)
+			},
+		}},
+
+		"endFrame": {Kind: FunctionVal, Value: NativeFunction{
+			Name: "endFrame",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("imui.endFrame", args, 1)
+				assertKind("imui.endFrame", args[0], StringVal)
+				imui.EndFrame(args[0].Value.(string))
+				return RuntimeValue{Kind: NullVal}
+			},
+		}},
+	}
+	env.Set("imui", RuntimeValue{Kind: ObjectVal, Value: imuiNS})
 }
 
 func assertArgCount(name string, args []RuntimeValue, n int) {

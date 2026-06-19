@@ -1,0 +1,183 @@
+from "./deck.tuna" catch Deck
+
+anchor DEALER_ROW = 3
+anchor HAND_COL = 2
+
+swim drawCard(card: object, row: number, col: number, hidden: bool): void
+	tui.move(row, col)
+	tui.print("┌────┐")
+
+	tui.move(row + 1, col)
+	if hidden
+		tui.print("│≈≈≈≈│")
+	else
+		catch rankPadded = card.rank
+		if len(card.rank) == 1
+			rankPadded = card.rank + " "
+		shore
+		tui.print("│" + rankPadded + card.suit + " │")
+	shore
+
+	tui.move(row + 2, col)
+	tui.print("└────┘")
+shore
+
+swim drawHand(cards: []object, row: number, hideFirst: bool): void
+	catch col = HAND_COL
+	catch i = 0
+	for card in cards
+		catch hidden = false
+		if hideFirst and i == 0
+			hidden = true
+		shore
+		drawCard(card, row, col, hidden)
+		col += 8
+		i++
+	shore
+shore
+
+swim getCard(): object
+	catch idx = math.randInt(0, 51)
+	serve Deck[idx]
+shore
+
+swim cardValue(rank: string): number
+	if rank == "A"
+		serve 11
+	shore
+	if rank == "K" or rank == "Q" or rank == "J"
+		serve 10
+	shore
+	serve toNumber(rank)
+shore
+
+swim handTotal(cards: []object): number
+	catch total = 0
+	catch aces = 0
+	for card in cards
+		catch val = cardValue(card.rank)
+		if card.rank == "A"
+			aces += 1
+		shore
+		total += val
+	shore
+
+	while total > 21 and aces > 0
+		total -= 10
+		aces -= 1
+	shore
+
+	serve total
+shore
+
+swim drawStatus(playerTotal: number, dealerTotal: number, dealerHidden: bool, PLAYER_ROW: number): void
+	tui.move(PLAYER_ROW + 4, HAND_COL)
+	tui.print("Your total: " + toString(playerTotal) + "   ")
+
+	tui.move(DEALER_ROW + 4, HAND_COL)
+	if dealerHidden
+		tui.print("Dealer total: ?   ")
+	else
+		tui.print("Dealer total: " + toString(dealerTotal) + "   ")
+	shore
+shore
+
+swim drawPrompt(msg: string, PLAYER_ROW: number): void
+	tui.move(PLAYER_ROW + 6, HAND_COL)
+	tui.print(msg + "                    ")
+shore
+
+swim redraw(dealerCards: []object, playerCards: []object, dealerHidden: bool, PLAYER_ROW: number): void
+	tui.move(1, HAND_COL)
+	tui.print("Dealer's Hand")
+	drawHand(dealerCards, DEALER_ROW, dealerHidden)
+
+	tui.move(PLAYER_ROW - 1, HAND_COL)
+	tui.print("Your Hand    ")
+	drawHand(playerCards, PLAYER_ROW, false)
+
+	catch playerTotal = handTotal(playerCards)
+	catch dealerTotal = handTotal(dealerCards)
+	drawStatus(playerTotal, dealerTotal, dealerHidden, PLAYER_ROW)
+shore
+
+swim main(): void
+	tui.clear()
+
+	catch termHeight = tui.height()
+	catch PLAYER_ROW = termHeight - 5
+	if PLAYER_ROW < 9
+		PLAYER_ROW = 9
+	shore
+
+	catch dealerCards: []object = []
+	catch playerCards: []object = []
+
+	dealerCards = array.push(dealerCards, getCard())
+	dealerCards = array.push(dealerCards, getCard())
+	playerCards = array.push(playerCards, getCard())
+	playerCards = array.push(playerCards, getCard())
+
+	redraw(dealerCards, playerCards, true, PLAYER_ROW)
+
+	catch playerDone = false
+	while playerDone == false
+		catch playerTotal = handTotal(playerCards)
+
+		if playerTotal == 21
+			playerDone = true
+		else if playerTotal > 21
+			playerDone = true
+		else
+			drawPrompt("(h) Hit  (s) Stand: ", PLAYER_ROW)
+			tui.move(PLAYER_ROW + 6, 21)
+			catch input = tui.input("")
+
+			if input == "h"
+				playerCards = array.push(playerCards, getCard())
+				redraw(dealerCards, playerCards, true, PLAYER_ROW)
+			else if input == "s"
+				playerDone = true
+			else
+				drawPrompt("Unknown input, use h or s", PLAYER_ROW)
+				tui.sleep(800)
+			shore
+		shore
+	shore
+
+	catch playerTotal = handTotal(playerCards)
+
+	redraw(dealerCards, playerCards, false, PLAYER_ROW)
+	tui.sleep(600)
+
+	if playerTotal <= 21
+		catch dealerTotal = handTotal(dealerCards)
+		while dealerTotal < 17
+			tui.sleep(700)
+			dealerCards = array.push(dealerCards, getCard())
+			dealerTotal = handTotal(dealerCards)
+			redraw(dealerCards, playerCards, false, PLAYER_ROW)
+		shore
+	shore
+
+	catch dealerTotal = handTotal(dealerCards)
+	catch resultMsg = ""
+
+	if playerTotal > 21
+		resultMsg = tui.color("red", "Bust! You lose.")
+	else if dealerTotal > 21
+		resultMsg = tui.color("green", "Dealer busts! You win!")
+	else if playerTotal > dealerTotal
+		resultMsg = tui.color("green", "You win!")
+	else if dealerTotal > playerTotal
+		resultMsg = tui.color("red", "Dealer wins.")
+	else
+		resultMsg = tui.color("yellow", "Push — it's a tie.")
+	shore
+
+	drawPrompt(resultMsg, PLAYER_ROW)
+	tui.move(PLAYER_ROW + 7, HAND_COL)
+	tui.input("Press Enter to exit...")
+shore
+
+main()

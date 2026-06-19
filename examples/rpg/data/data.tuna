@@ -2,6 +2,7 @@ from "../classes/classSelection.tuna" catch getClass
 
 swim canLoad(): bool
     catch path = os.scriptDir + "/playerData.tuna"
+    bubble(path)
     catch exists = false
 
     try
@@ -16,32 +17,42 @@ swim canLoad(): bool
     serve exists
 shore
 
-swim defaultPlayerData(name: string, class: string): object
+swim defaultPlayerData(name: string, class: object): object
     serve {
         name: name,
-        class: class,
-        gold: 0,
-        weapon: "None",
-        armor: "None",
+        class: class.name,
+        gold: class.startingGold,
+        weapon: class.weapon,
+        armor: class.armor,
         
         inventory: {
+            weapons: {
 
+            },
+            armor: {
+
+            },
+            ores: {
+
+            },
         },
         stats: {
-            enemiesKilled: 0,
-            health: 100,
-            maxHealth: 100,
-            baseDmg: 10,
-            speed: 1,
+            health: class.health,
+            maxHealth: class.health,
+            baseDmg: class.baseDmg,
+            speed: class.speed,
         },
-        ores: {
-
-        }
+        progression: {
+            enemiesKilled: 0,
+            exp: 0,
+            level: 1,
+        },
     }   
 shore
 
 cast swim init_data(): object
-    catch path as os.scriptDir + "/playerData.tuna"
+    catch path as os.scriptDir + "/playerData.json"
+    bubble(path)
 
     catch data: object
 
@@ -52,7 +63,7 @@ cast swim init_data(): object
             os.read(path)
         )
 
-        bubble("Welcome back, " + saveData.player.name + "!")
+        bubble("Welcome back, " + saveData.name + "!")
         data = saveData
     else
         bubble("Creating new save...")
@@ -64,10 +75,10 @@ cast swim init_data(): object
 
         os.write(
             path,
-            json.encode(saveData, class)
+            json.encode(saveData)
         )
 
-        bubble("Welcome, " + saveData.player.name + "!")
+        bubble("Welcome, " + saveData.name + "!")
         data = saveData
     shore
 
@@ -76,7 +87,7 @@ shore
 
 cast swim saveGame(data: object): void
     os.write(
-        os.scriptDir + "/playerData.tuna",
+        os.scriptDir + "/playerData.json",
         json.encode(data)
     )
 shore

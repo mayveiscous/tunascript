@@ -12,6 +12,8 @@ type RuntimeValue struct {
 	Value any
 }
 
+type ScriptCallback func(hdc uintptr)
+
 type FunctionValue struct {
 	Name       string
 	Parameters []tunaparser.FunctionParameter

@@ -1,9 +1,8 @@
 from "./characters.tuna" catch Player
 from "./data/data.tuna" catch init_data, saveGame
+from "./world/world.tuna" catch init_world
 
 swim main(): void
 	catch data as init_data()
-	bubble(data)
-	data.player.level += 1
-	saveGame(data)
+	init_world()
 shore

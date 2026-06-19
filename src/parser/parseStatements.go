@@ -123,11 +123,21 @@ func parseWhileStatement(p *parser) Statement {
 
 func parseForInStatement(p *parser) Statement {
 	p.advance()
-	iterator := p.expectError(lexer.IDENT, p.parseError("expected iterator name after 'for'")).Value
+	first := p.expectError(lexer.IDENT, p.parseError("expected iterator name after 'for'")).Value
+
+	keyVar := ""
+	iterator := first
+	if p.currentTokenKind() == lexer.COMMA {
+		p.advance()
+		second := p.expectError(lexer.IDENT, p.parseError("expected second iterator name after ','")).Value
+		keyVar = first
+		iterator = second
+	}
+
 	p.expectError(lexer.IN, p.parseError("expected 'in' after iterator name"))
 	iterable := parseExpression(p, defaultBp)
 	body := parseBody(p)
-	return ForInStatement{Iterator: iterator, Iterable: iterable, Body: body}
+	return ForInStatement{KeyVar: keyVar, Iterator: iterator, Iterable: iterable, Body: body}
 }
 
 func parseFunctionParameters(p *parser) []FunctionParameter {
@@ -337,15 +347,48 @@ func parseType(p *parser, bp BindingPower) AstType {
 func parseSymbolType(p *parser) AstType {
 	tok := p.expect(lexer.IDENT)
 	name := tok.Value
-	validTypes := map[string]bool{
+	builtinTypes := map[string]bool{
 		"number": true, "string": true, "bool": true,
 		"function": true, "void": true, "null": true, "array": true, "object": true,
 	}
-	if !validTypes[name] {
+	// Allow built-in types or user-defined school types (uppercase first letter by convention)
+	if !builtinTypes[name] && (len(name) == 0 || name[0] < 'A' || name[0] > 'Z') {
 		panic(lexer.NewError(tok.Line, tok.Column,
-			fmt.Sprintf("unknown type '%s': valid types are number, string, bool, function, void, null, array", name)))
+			fmt.Sprintf("unknown type '%s': use a built-in type or a school name (must start with uppercase)", name)))
 	}
 	return SymbolType{Name: name}
+}
+
+func parseSchoolStatement(p *parser) Statement {
+	p.advance() // consume 'school'
+	nameTok := p.expectError(lexer.IDENT, p.parseError("expected school name after 'school'"))
+	name := nameTok.Value
+	if len(name) == 0 || name[0] < 'A' || name[0] > 'Z' {
+		panic(lexer.NewError(nameTok.Line, nameTok.Column,
+			"school names must start with an uppercase letter"))
+	}
+	p.expectError(lexer.ASSIGNMENT, p.parseError(fmt.Sprintf("expected '=' after school name '%s'", name)))
+	p.expectError(lexer.OPEN_CURLY, p.parseError("expected '{' to begin school body"))
+
+	fields := []SchoolFieldDef{}
+	seen := map[string]bool{}
+	for p.hasTokens() && p.currentTokenKind() != lexer.CLOSE_CURLY {
+		fieldTok := p.expectError(lexer.IDENT, p.parseError("expected field name in school body"))
+		fieldName := fieldTok.Value
+		if seen[fieldName] {
+			panic(lexer.NewError(fieldTok.Line, fieldTok.Column,
+				fmt.Sprintf("duplicate field '%s' in school '%s'", fieldName, name)))
+		}
+		seen[fieldName] = true
+		p.expectError(lexer.COLON, p.parseError(fmt.Sprintf("expected ':' after field name '%s'", fieldName)))
+		fieldType := parseType(p, defaultBp)
+		fields = append(fields, SchoolFieldDef{Name: fieldName, Type: fieldType})
+		if p.currentTokenKind() == lexer.COMMA {
+			p.advance()
+		}
+	}
+	p.expectError(lexer.CLOSE_CURLY, p.parseError("expected '}' to close school body"))
+	return SchoolStatement{Name: name, Fields: fields}
 }
 
 func parseArrayType(p *parser) AstType {

@@ -42,6 +42,7 @@ func (e CallExpression) expression()      {}
 func (e TypeofExpression) expression()    {}
 func (s SwapStatement) statement() {}
 func (s TryStatement) statement() {}
+func (s SchoolStatement) statement() {}
 
 func (s ExpressionStatement) statement()  {}
 func (s BlockStatement) statement()       {}

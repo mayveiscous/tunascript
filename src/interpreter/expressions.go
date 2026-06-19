@@ -62,13 +62,17 @@ func EvaluateExpression(expr tunaparser.Expression, env *Environment, ctx ExecCo
   
 		if left.Kind == ObjectVal {
 			 if index.Kind != StringVal {
-				  panic(TunaError("object index must be a string"))
+				  // A non-string key (including nil) can never match a property,
+				  // so treat it as a miss rather than a hard error. This lets
+				  // checks like `if obj[someValue] == nil` or `!obj[someValue]`
+				  // work even when someValue turns out to be nil.
+				  return RuntimeValue{Kind: NullVal}
 			 }
 			 props := left.Value.(map[string]RuntimeValue)
 			 key := index.Value.(string)
 			 val, ok := props[key]
 			 if !ok {
-				  panic(TunaError(fmt.Sprintf("property '%s' does not exist on object", key)))
+				  return RuntimeValue{Kind: NullVal}
 			 }
 			 return val
 		}
@@ -403,66 +407,12 @@ func EvaluateCallExpression(e tunaparser.CallExpression, env *Environment, ctx E
 		return f.Call(args)
 
 	case FunctionValue:
-		hasVariadic := len(f.Parameters) > 0 && f.Parameters[len(f.Parameters)-1].IsVariadic
-		fixedCount  := len(f.Parameters)
-		if hasVariadic {
-			 fixedCount--
+		args := make([]RuntimeValue, len(e.Arguments))
+		for i, arg := range e.Arguments {
+			args[i] = EvaluateExpression(arg, env, ctx)
 		}
-  
-		if !hasVariadic && len(e.Arguments) != len(f.Parameters) {
-			 panic(TunaError(fmt.Sprintf(
-				  "function '%s' expects %d argument(s) but got %d",
-				  f.Name, len(f.Parameters), len(e.Arguments))))
-		}
-		if hasVariadic && len(e.Arguments) < fixedCount {
-			 panic(TunaError(fmt.Sprintf(
-				  "function '%s' expects at least %d argument(s) but got %d",
-				  f.Name, fixedCount, len(e.Arguments))))
-		}
-  
-		declEnv := f.Env
-		if declEnv == nil {
-			 declEnv = env
-		}
-		fnEnv := NewEnvironment(declEnv)
-
-		for i := 0; i < fixedCount; i++ {
-			 param  := f.Parameters[i]
-			 argVal := EvaluateExpression(e.Arguments[i], env, ctx)
-			 if param.Type != nil {
-				  checkType(param.Name, argVal, param.Type)
-			 }
-			 fnEnv.SetTyped(param.Name, argVal, param.Type)
-		}
-  
-		if hasVariadic {
-			 varParam := f.Parameters[len(f.Parameters)-1]
-			 rest := make([]RuntimeValue, len(e.Arguments)-fixedCount)
-			 for i, arg := range e.Arguments[fixedCount:] {
-				  rest[i] = EvaluateExpression(arg, env, ctx)
-			 }
-			 fnEnv.Set(varParam.Name, RuntimeValue{Kind: ArrayVal, Value: rest})
-		}
-  
-		fnCtx  := ctx.withFunction()
-		result := EvaluateBlock(f.Body, fnEnv, fnCtx)
-
-		if result.Signal == sigReturn {
-			ret := result.Value
-			checkType(f.Name+"() return", ret, f.ReturnType)
-			return ret
-		}
-
-		if f.ReturnType != nil {
-			want := resolveTypeName(f.ReturnType)
-			if want != "" && want != "null" && want != "void" {
-				panic(TunaError(fmt.Sprintf(
-					"function '%s' must return a '%s' but reached end without a 'serve'",
-					f.Name, want)))
-			}
-		}
-		return RuntimeValue{Kind: NullVal}
-
+	
+		return CallFunctionValue(f, args, env, ctx)
 	default:
 		panic(TunaError("cannot call non-function value"))
 	}

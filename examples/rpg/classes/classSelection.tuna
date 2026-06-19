@@ -1,24 +1,39 @@
 from "classes.tuna" catch Classes
 
-swim askForClass(): string
-   catch input as tui.input("Choose a class: ")
-   tui.println(" ")
-   for name, class in Classes
-      tui.println(name)
+swim dumpClasses(): void
+	for class in Classes
+      tui.println("=== " + class.name + " ===")
+      tui.println("Base Damage: " + class.baseDmg)
+      tui.println("Max Health: " + class.health)
+      tui.println("Speed: " + class.speed)
+      tui.println("Starting Gold: " + class.startingGold)
+      tui.println("Starting Weapon: " + class.weapon)
+      tui.println("Starting Armor: " + class.armor)
+      tui.println(" ")
    shore
+shore
 
+swim askForClass(): object
+   tui.println(" ")
+   dumpClasses()
+   tui.println(" ")
+
+   catch input as tui.input("Choose a class: ")
+   catch chosenClass as {}
+
+   input = string.lower(input)
+   
    if Classes[input] == nil
    	tui.println(" ")
       tui.println("that's not a valid class")
-      askForClass()
+      serve askForClass()
+   else 
+      chosenClass = Classes[input]
    shore
 
-	serve input
-   serve ""
+	serve chosenClass
 shore
 
-cast swim getClass(): string
-	catch input as askForClass()
-
-   serve Classes[input]
+cast swim getClass(): object
+   serve askForClass()
 shore

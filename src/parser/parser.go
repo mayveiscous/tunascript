@@ -129,6 +129,7 @@ func init() {
 	statementReg(lexer.FROM,     parseImportStatement)
 	statementReg(lexer.CAST,     parseCastStatement)
 	statementReg(lexer.TRY, parseTryStatement)
+	statementReg(lexer.SCHOOL, parseSchoolStatement)
 
 	typeNudReg(lexer.IDENT,        parseSymbolType)
 	typeNudReg(lexer.OPEN_BRACKET, parseArrayType)

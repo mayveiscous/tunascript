@@ -3,6 +3,7 @@ package interpreter
 import (
 	tunaparser "tunascript/src/parser"
 	"fmt"
+	"sort"
 )
 
 func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecContext) EvalResult {
@@ -81,28 +82,64 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 
 	case tunaparser.ForInStatement:
 		iterable := EvaluateExpression(s.Iterable, env, ctx)
-		if iterable.Kind != ArrayVal {
-			panic(TunaError(fmt.Sprintf(
-				"cannot iterate over non-array value of type '%s' in for/in", iterable.Kind)))
-		}
 		result := NullResult
 		loopCtx := ctx.withLoop()
-		for _, element := range iterable.Value.([]RuntimeValue) {
-			loopEnv := NewEnvironment(env)
-			loopEnv.Set(s.Iterator, element)
-			r := EvaluateBlock(s.Body, loopEnv, loopCtx)
-			switch r.Signal {
-			case sigBreak:
-				return NullResult
-			case sigContinue:
-				continue
-			case sigReturn:
-				return r
+
+		switch iterable.Kind {
+		case ArrayVal:
+			for i, element := range iterable.Value.([]RuntimeValue) {
+				loopEnv := NewEnvironment(env)
+				if s.KeyVar != "" {
+					loopEnv.Set(s.KeyVar, RuntimeValue{Kind: NumberVal, Value: float64(i)})
+				}
+				loopEnv.Set(s.Iterator, element)
+				r := EvaluateBlock(s.Body, loopEnv, loopCtx)
+				switch r.Signal {
+				case sigBreak:
+					return NullResult
+				case sigContinue:
+					continue
+				case sigReturn:
+					return r
+				}
+				result = r
 			}
-			result = r
+			return result
+
+		case ObjectVal:
+			props := iterable.Value.(map[string]RuntimeValue)
+			keys := make([]string, 0, len(props))
+			for k := range props {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				loopEnv := NewEnvironment(env)
+				if s.KeyVar != "" {
+					loopEnv.Set(s.KeyVar, RuntimeValue{Kind: StringVal, Value: k})
+					loopEnv.Set(s.Iterator, props[k])
+				} else {
+					// single-binding form: bind the value (consistent with array iteration)
+					loopEnv.Set(s.Iterator, props[k])
+				}
+				r := EvaluateBlock(s.Body, loopEnv, loopCtx)
+				switch r.Signal {
+				case sigBreak:
+					return NullResult
+				case sigContinue:
+					continue
+				case sigReturn:
+					return r
+				}
+				result = r
+			}
+			return result
+
+		default:
+			panic(TunaError(fmt.Sprintf(
+				"cannot iterate over non-array, non-object value of type '%s' in for/in", iterable.Kind)))
 		}
-		return result
-		
+
 	case tunaparser.FunctionDecStatement:
 		closureEnv := NewEnvironment(env)
 		fn := RuntimeValue{
@@ -128,6 +165,13 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 
 	case tunaparser.CastStatement:
 		return EvaluateStatement(s.Inner, env, ctx)
+
+	case tunaparser.SchoolStatement:
+		if _, exists := schoolRegistry[s.Name]; exists {
+			fmt.Printf("\033[33m[Tunascript Warning]\033[0m redefining school '%s'\n", s.Name)
+		}
+		schoolRegistry[s.Name] = s
+		return NullResult
 
 	case tunaparser.ImportStatement:
 		exports := loadModule(s.Path, ctx)

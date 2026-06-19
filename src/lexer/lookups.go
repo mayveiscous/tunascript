@@ -78,6 +78,7 @@ const (
 	CAST
 	TRY
 	HOOK
+	SCHOOL
 )
 
 var reserved_lu = map[string]TokenKind{
@@ -106,6 +107,7 @@ var reserved_lu = map[string]TokenKind{
 	"as": AS,
 	"try":  TRY,
 	"hook": HOOK,
+	"school": SCHOOL,
 }
 
 var tokenKindStrings = map[TokenKind]string{
@@ -162,6 +164,7 @@ var tokenKindStrings = map[TokenKind]string{
 	ELLIPSIS:      "...",
 	TRY:  			"try",
 	HOOK: 			"hook",
+	SCHOOL:			"school",
 }
 
 var patterns = []regexPattern{

@@ -1,0 +1,12 @@
+catch Areas: []string as [
+   "Shop",
+   "Dungeons",
+   "Mines",
+   "Backpack",
+]
+
+cast swim init_world(): void
+   for a in Areas
+      bubble(a)
+   shore
+shore

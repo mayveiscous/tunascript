@@ -1,8 +1,29 @@
 cast catch Classes = {
-   Tuna: {
-      
+   Puffer: {
+      name: "Puffer",
+      baseDmg: 6,
+      health: 140,
+      speed: 1,
+      startingGold: 15,
+      armor: "Puffer",
+      weapon: "None",
    },
-   Other: {
-
+   Swordfish: {
+      name: "Swordfish",
+      baseDmg: 14,
+      health: 80,
+      speed: 3,
+      startingGold: 5,
+      armor: "None",
+      weapon: "Saw",
+   },
+   Crab: {
+      name: "Crab",
+      baseDmg: 8,
+      health: 120,
+      speed: 1,
+      startingGold: 12,
+      armor: "Shell",
+      weapon: "None",
    },
 }

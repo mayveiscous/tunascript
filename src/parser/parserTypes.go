@@ -120,6 +120,7 @@ type WhileStatement struct {
 }
 
 type ForInStatement struct {
+	KeyVar   string
 	Iterator string
 	Iterable Expression
 	Body     BlockStatement
@@ -147,3 +148,13 @@ type CastStatement struct {
 
 type SymbolType struct{ Name string }
 type ArrayType  struct{ Underlying AstType }
+
+type SchoolFieldDef struct {
+	Name string
+	Type AstType
+}
+
+type SchoolStatement struct {
+	Name   string
+	Fields []SchoolFieldDef
+}
