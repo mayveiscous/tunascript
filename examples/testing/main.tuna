@@ -1,9 +1,102 @@
-swim tick(hdc: number): void
-   hdc = hdc
+catch counter: number as 0
+catch darkMode: bool as false
 
-   catch frm as imui.frame("testFrame", 10, 10, 15, 15)
-     catch btn as imui.button("move", "Move")
-   imui.endFrame("testFrame")
+catch title: object as {}
+catch panel: object as {}
+catch lbl: object as {}
+catch btnInc: object as {}
+catch btnReset: object as {}
+catch tgDark: object as {}
+catch sl: object as {}
+catch lblSlider: object as {}
+catch footer: object as {}
+
+anchor THEME_LIGHT = {
+    windowBg: "#F0F0F0",
+    panelBg: "#FFFFFF",
+    text: "#000000",
+    border: "#CCCCCC"
+}
+
+anchor THEME_DARK = {
+    windowBg: "#1E1E1E",
+    panelBg: "#2A2A2A",
+    text: "#FFFFFF",
+    border: "#444444"
+}
+
+swim applyTheme(theme: object): void
+    imui.setColor("background", theme.windowBg)
+
+    panel.bgColor = theme.panelBg
+
+    title.textColor = theme.text
+    lbl.textColor = theme.text
+    footer.textColor = theme.text
+    lblSlider.textColor = theme.text
+
+    btnInc.textColor = theme.text
+    btnInc.borderColor = theme.border
+    btnReset.textColor = theme.text
+    btnReset.borderColor = theme.border
+
+    tgDark.textColor = theme.text
+    tgDark.borderColor = theme.border
+
+    sl.borderColor = theme.border
 shore
 
-imui.createWindow("Test", 300, 300, tick)
+swim onToggleTheme(state: bool): void
+    darkMode = state
+    if darkMode
+        applyTheme(THEME_DARK)
+    else
+        applyTheme(THEME_LIGHT)
+    shore
+shore
+
+swim tick(): void
+    title = imui.text("title", "Software Renderer Test")
+    imui.setCursor("arrow")
+
+    panel = imui.frame("panel", 20, 50, 360, 240)
+
+    lbl = imui.text("lbl_counter", "Counter: " + toString(counter))
+
+    btnInc = imui.button("btn_inc", "Increment")
+    btnInc.onClick(swim(): void
+        counter = counter + 1
+        imui.setCursor("hand")
+    shore)
+
+    btnReset = imui.button("btn_reset", "Reset")
+    btnReset.onClick(swim(): void
+        counter = 0
+        imui.setCursor("hand")
+    shore)
+
+    tgDark = imui.toggle("tg_dark", "Theme toggle")
+    tgDark.onChange(swim(state: bool): void
+        onToggleTheme(state)
+        imui.setCursor("hand")
+    shore)
+
+    sl = imui.slider("sl_test", 0.0, 100.0, 50.0)
+    lblSlider = imui.text("lbl_slider", "Value: " + toString(sl.value))
+
+    imui.endFrame("panel")
+
+    footer = imui.text("footer", "Drag the slider, click the buttons, toggle the theme.")
+
+    if darkMode
+        applyTheme(THEME_DARK)
+    else
+        applyTheme(THEME_LIGHT)
+    shore
+shore
+
+swim main(): void
+    imui.createWindow("IMUI Renderer Test", 470, 370, tick)
+shore
+
+main()

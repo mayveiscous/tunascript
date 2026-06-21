@@ -7,10 +7,10 @@ import (
 
 func NewEnvironment(parent *Environment) *Environment {
 	return &Environment{
-		variables:     map[string]RuntimeValue{},
-		constants:     map[string]bool{},
-		declaredTypes: map[string]tunaparser.AstType{},
-		parent:        parent,
+		variables:	map[string]RuntimeValue{},
+		constants:	map[string]bool{},
+		declaredTypes:	map[string]tunaparser.AstType{},
+		parent:		parent,
 	}
 }
 

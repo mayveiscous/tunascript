@@ -1,7 +1,7 @@
 package interpreter
 
 const (
-	ValNumber ValueKind = iota
+	ValNumber	ValueKind	= iota
 	ValString
 	ValBool
 	ValNull
@@ -11,27 +11,27 @@ const (
 )
 
 const (
-	NumberVal   = ValNumber
-	StringVal   = ValString
-	BoolVal     = ValBool
-	NullVal     = ValNull
-	FunctionVal = ValFunction
-	ArrayVal    = ValArray
-	ObjectVal   = ValObject
+	NumberVal	= ValNumber
+	StringVal	= ValString
+	BoolVal		= ValBool
+	NullVal		= ValNull
+	FunctionVal	= ValFunction
+	ArrayVal	= ValArray
+	ObjectVal	= ValObject
 )
 
 const (
-	SigNone SignalKind = iota
+	SigNone	SignalKind	= iota
 	SigReturn
 	SigBreak
 	SigContinue
 )
 
 const (
-	sigNone   = SigNone
-	sigReturn = SigReturn
-	sigBreak  = SigBreak
-	sigContinue = SigContinue
+	sigNone		= SigNone
+	sigReturn	= SigReturn
+	sigBreak	= SigBreak
+	sigContinue	= SigContinue
 )
 
 func (k ValueKind) String() string {
@@ -54,6 +54,5 @@ func (k ValueKind) String() string {
 		return "unknown"
 	}
 }
-
 
 var NullResult = EvalResult{Value: RuntimeValue{Kind: NullVal}}

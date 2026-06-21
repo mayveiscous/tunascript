@@ -170,7 +170,7 @@ bubble(tax)        ><< 0.08
 
 ### Types
 
-`number`, `string`, `bool`, `null`, `function`, `array`, `object`, `void`
+`number`, `string`, `bool`, `nil`, `function`, `array`, `object`, `void`
 
 ---
 

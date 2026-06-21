@@ -27,56 +27,53 @@ func EvaluateExpression(expr tunaparser.Expression, env *Environment, ctx ExecCo
 		return RuntimeValue{Kind: BoolVal, Value: e.Value}
 
 	case tunaparser.IndexExpression:
-		left  := EvaluateExpression(e.Left, env, ctx)
+		left := EvaluateExpression(e.Left, env, ctx)
 		index := EvaluateExpression(e.Index, env, ctx)
-  
+
 		if left.Kind == ArrayVal {
-			 if index.Kind != NumberVal {
-				  panic(TunaError("array index must be a number"))
-			 }
-			 i := int(index.Value.(float64))
-			 arr := left.Value.([]RuntimeValue)
-			 if i < 0 {
-				  panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
-			 }
-			 if i >= len(arr) {
-				  panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr))))
-			 }
-			 return arr[i]
+			if index.Kind != NumberVal {
+				panic(TunaError("array index must be a number"))
+			}
+			i := int(index.Value.(float64))
+			arr := left.Value.([]RuntimeValue)
+			if i < 0 {
+				panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
+			}
+			if i >= len(arr) {
+				panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(arr))))
+			}
+			return arr[i]
 		}
-  
+
 		if left.Kind == StringVal {
-			 if index.Kind != NumberVal {
-				  panic(TunaError("string index must be a number"))
-			 }
-			 i := int(index.Value.(float64))
-			 runes := []rune(left.Value.(string))
-			 if i < 0 {
-				  panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
-			 }
-			 if i >= len(runes) {
-				  panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(runes))))
-			 }
-			 return RuntimeValue{Kind: StringVal, Value: string(runes[i])}
+			if index.Kind != NumberVal {
+				panic(TunaError("string index must be a number"))
+			}
+			i := int(index.Value.(float64))
+			runes := []rune(left.Value.(string))
+			if i < 0 {
+				panic(TunaError(fmt.Sprintf("negative indices are not supported (got %d)", i)))
+			}
+			if i >= len(runes) {
+				panic(TunaError(fmt.Sprintf("index %d out of bounds (length %d)", i, len(runes))))
+			}
+			return RuntimeValue{Kind: StringVal, Value: string(runes[i])}
 		}
-  
+
 		if left.Kind == ObjectVal {
-			 if index.Kind != StringVal {
-				  // A non-string key (including nil) can never match a property,
-				  // so treat it as a miss rather than a hard error. This lets
-				  // checks like `if obj[someValue] == nil` or `!obj[someValue]`
-				  // work even when someValue turns out to be nil.
-				  return RuntimeValue{Kind: NullVal}
-			 }
-			 props := left.Value.(map[string]RuntimeValue)
-			 key := index.Value.(string)
-			 val, ok := props[key]
-			 if !ok {
-				  return RuntimeValue{Kind: NullVal}
-			 }
-			 return val
+			if index.Kind != StringVal {
+
+				return RuntimeValue{Kind: NullVal}
+			}
+			props := left.Value.(map[string]RuntimeValue)
+			key := index.Value.(string)
+			val, ok := props[key]
+			if !ok {
+				return RuntimeValue{Kind: NullVal}
+			}
+			return val
 		}
-  
+
 		panic(TunaError(fmt.Sprintf("cannot index into type '%s'", left.Kind)))
 	case tunaparser.ArrayLiteral:
 		elements := make([]RuntimeValue, len(e.Elements))
@@ -127,13 +124,13 @@ func EvaluateExpression(expr tunaparser.Expression, env *Environment, ctx ExecCo
 	case tunaparser.FunctionExpression:
 		closureEnv := NewEnvironment(env)
 		return RuntimeValue{
-			Kind: FunctionVal,
+			Kind:	FunctionVal,
 			Value: FunctionValue{
-				Name:       "",
-				Parameters: e.Parameters,
-				ReturnType: e.ReturnType,
-				Body:       e.Body,
-				Env:        closureEnv,
+				Name:		"",
+				Parameters:	e.Parameters,
+				ReturnType:	e.ReturnType,
+				Body:		e.Body,
+				Env:		closureEnv,
 			},
 		}
 
@@ -442,7 +439,7 @@ func EvaluateCallExpression(e tunaparser.CallExpression, env *Environment, ctx E
 		for i, arg := range e.Arguments {
 			args[i] = EvaluateExpression(arg, env, ctx)
 		}
-	
+
 		return CallFunctionValue(f, args, env, ctx)
 	default:
 		panic(TunaError("cannot call non-function value"))

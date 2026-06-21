@@ -3,10 +3,10 @@ package lexer
 import "fmt"
 
 type TunaError struct {
-	FilePath string
-	Line     int
-	Column   int
-	Message  string
+	FilePath	string
+	Line		int
+	Column		int
+	Message		string
 }
 
 func (e *TunaError) Error() string {
@@ -19,9 +19,9 @@ func (e *TunaError) Error() string {
 
 func NewError(filePath string, line, col int, msg string) *TunaError {
 	return &TunaError{
-		FilePath: filePath,
-		Line:     line,
-		Column:   col,
-		Message:  msg,
+		FilePath:	filePath,
+		Line:		line,
+		Column:		col,
+		Message:	msg,
 	}
 }

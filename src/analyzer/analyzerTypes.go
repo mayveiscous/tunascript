@@ -5,17 +5,17 @@ import "fmt"
 type DiagnosticLevel int
 
 const (
-	DiagError   DiagnosticLevel = iota
+	DiagError	DiagnosticLevel	= iota
 	DiagWarning
 	DiagHint
 )
 
 type Diagnostic struct {
-	Level    DiagnosticLevel
-	Message  string
-	Line     int
-	Column   int
-	FilePath string
+	Level		DiagnosticLevel
+	Message		string
+	Line		int
+	Column		int
+	FilePath	string
 }
 
 func (d Diagnostic) String() string {
@@ -38,20 +38,20 @@ func (d Diagnostic) String() string {
 }
 
 type varInfo struct {
-	token   tokenPos
-	isUsed  bool
-	isConst bool
-	isParam bool
+	token	tokenPos
+	isUsed	bool
+	isConst	bool
+	isParam	bool
 }
 
 type tokenPos struct {
-	line int
-	col  int
+	line	int
+	col	int
 }
 
 type scope struct {
-	inFunction       bool
-	inLoop           bool
-	variables        map[string]*varInfo
-	savedUnreachable bool
+	inFunction		bool
+	inLoop			bool
+	variables		map[string]*varInfo
+	savedUnreachable	bool
 }

@@ -5,14 +5,14 @@ import "strings"
 type RunMode int
 
 const (
-	ModeInterpret RunMode = iota
+	ModeInterpret	RunMode	= iota
 	ModeCompile
 )
 
 type Config struct {
-	Mode        RunMode
-	NonStrict   bool
-	WarnAsError bool
+	Mode		RunMode
+	NonStrict	bool
+	WarnAsError	bool
 }
 
 func Extract(source string) Config {

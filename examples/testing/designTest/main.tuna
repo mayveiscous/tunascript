@@ -1,0 +1,462 @@
+anchor BG = "#11161D"
+anchor SURFACE = "#161D27"
+anchor SURFACE_ALT = "#1B2430"
+anchor BORDER = "#27323F"
+anchor BORDER_SOFT = "#1F2834"
+anchor TEXT_PRIMARY = "#EAF0F6"
+anchor TEXT_MUTED = "#8C9AAD"
+anchor TEXT_FAINT = "#5C6878"
+anchor ACCENT = "#3FC6B0"
+anchor ACCENT_DIM = "#2C8C7C"
+anchor WARN = "#E0A23F"
+anchor DANGER = "#D9695F"
+anchor INFO = "#5B8FD9"
+anchor NAV_ACTIVE_BG = "#1E2D2A"
+
+anchor WIN_W = 980
+anchor WIN_H = 640
+anchor SIDEBAR_W = 200
+anchor HEADER_H = 64
+anchor MARGIN = 24
+
+catch activeTab: string = "overview"
+catch notifyOn: bool = true
+catch autosaveOn: bool = false
+catch compactMode: bool = false
+catch volume: number = 62
+
+swim styleSurfacePanel(panel: object): void
+    panel.bgColor = SURFACE
+    panel.borderColor = BORDER_SOFT
+    panel.borderThickness = 1
+    panel.cornerRadius = 10
+shore
+
+swim divider(id: string, px: number, py: number, w: number): void
+    catch line: object = imui.frame(id, px, py, w, 1)
+    line.bgColor = BORDER_SOFT
+    line.borderThickness = 0
+    imui.endFrame(id)
+shore
+
+swim pillBadge(id: string, px: number, py: number, label: string, color: string): void
+    catch w: number = len(label) * 7 + 24
+    catch badge: object = imui.frame(id, px, py, w, 22)
+    badge.bgColor = color
+    badge.borderThickness = 0
+    badge.cornerRadius = 11
+    catch t: object = imui.text(id + "_t", label)
+    t.move(px + 12, py + 4)
+    t.textColor = "#0B0F13"
+    imui.endFrame(id)
+shore
+
+swim navItem(id: string, label: string, px: number, py: number, isActive: bool): bool
+    catch item: object = imui.button(id, label)
+    item.move(px, py)
+    item.width = SIDEBAR_W - 32
+    item.height = 38
+    item.cornerRadius = 8
+    item.borderThickness = 0
+    if isActive
+        item.idleColor = NAV_ACTIVE_BG
+        item.hoverColor = NAV_ACTIVE_BG
+        item.pressColor = NAV_ACTIVE_BG
+        item.textColor = ACCENT
+    else
+        item.idleColor = SURFACE
+        item.hoverColor = SURFACE_ALT
+        item.pressColor = SURFACE_ALT
+        item.textColor = TEXT_MUTED
+    shore
+    serve item.clicked
+shore
+
+swim sectionLabel(id: string, content: string, px: number, py: number): void
+    catch lbl: object = imui.text(id, content)
+    lbl.move(px, py)
+    lbl.textColor = TEXT_FAINT
+shore
+
+swim statCard(id: string, px: number, py: number, w: number, h: number, title: string, value: string, accentColor: string): void
+    catch card: object = imui.frame(id, px, py, w, h)
+    card.bgColor = SURFACE
+    card.borderColor = BORDER_SOFT
+    card.borderThickness = 1
+    card.cornerRadius = 10
+    catch accentBar: object = imui.frame(id + "_accent", px, py, 4, h)
+    accentBar.bgColor = accentColor
+    accentBar.borderThickness = 0
+    accentBar.cornerRadius = 2
+    imui.endFrame(id + "_accent")
+    catch lbl: object = imui.text(id + "_title", title)
+    lbl.move(px + 18, py + 16)
+    lbl.textColor = TEXT_MUTED
+    catch val: object = imui.text(id + "_value", value)
+    val.move(px + 18, py + 38)
+    val.textColor = TEXT_PRIMARY
+    imui.endFrame(id)
+shore
+
+swim progressTrack(id: string, px: number, py: number, w: number, fraction: number, color: string): void
+    catch track: object = imui.frame(id + "_track", px, py, w, 6)
+    track.bgColor = SURFACE_ALT
+    track.borderThickness = 0
+    track.cornerRadius = 3
+    imui.endFrame(id + "_track")
+    catch fillW: number = w * fraction
+    catch fill: object = imui.frame(id + "_fill", px, py, fillW, 6)
+    fill.bgColor = color
+    fill.borderThickness = 0
+    fill.cornerRadius = 3
+    imui.endFrame(id + "_fill")
+shore
+
+swim statusDot(id: string, px: number, py: number, color: string): void
+    catch dot: object = imui.frame(id, px, py, 8, 8)
+    dot.bgColor = color
+    dot.cornerRadius = 4
+    dot.borderThickness = 0
+    imui.endFrame(id)
+shore
+
+swim titleForTab(tab: string): string
+    if tab == "overview"
+        serve "Overview"
+    shore
+    if tab == "metrics"
+        serve "Metrics"
+    shore
+    if tab == "settings"
+        serve "Settings"
+    shore
+    serve "Tidewatch"
+shore
+
+swim subtitleForTab(tab: string): string
+    if tab == "overview"
+        serve "A calm summary of everything that matters"
+    shore
+    if tab == "metrics"
+        serve "Throughput, latency, and load at a glance"
+    shore
+    if tab == "settings"
+        serve "Tune behavior and appearance"
+    shore
+    serve ""
+shore
+
+swim drawSidebar(): void
+    catch sidebar: object = imui.frame("sidebar", 0, 0, SIDEBAR_W, WIN_H)
+    sidebar.bgColor = SURFACE
+    sidebar.borderColor = BORDER
+    sidebar.borderThickness = 0
+    sidebar.cornerRadius = 0
+    sidebar.padding = 16
+
+    catch brand: object = imui.text("brand", "TIDEWATCH")
+    brand.move(24, 24)
+    brand.textColor = TEXT_PRIMARY
+    catch brandSub: object = imui.text("brandSub", "control panel")
+    brandSub.move(24, 42)
+    brandSub.textColor = TEXT_FAINT
+
+    divider("nav_divider", 16, 70, SIDEBAR_W - 32)
+    sectionLabel("nav_label", "MENU", 24, 88)
+
+    catch navY: number = 110
+    catch navGap: number = 46
+
+    if navItem("nav_overview", "Overview", 16, navY, activeTab == "overview")
+        activeTab = "overview"
+    shore
+    navY += navGap
+
+    if navItem("nav_metrics", "Metrics", 16, navY, activeTab == "metrics")
+        activeTab = "metrics"
+    shore
+    navY += navGap
+
+    if navItem("nav_settings", "Settings", 16, navY, activeTab == "settings")
+        activeTab = "settings"
+    shore
+    navY += navGap
+
+    divider("nav_divider2", 16, navY + 6, SIDEBAR_W - 32)
+
+    statusDot("status_dot", 24, WIN_H - 64, ACCENT)
+    catch statusText: object = imui.text("status_text", "All systems normal")
+    statusText.move(40, WIN_H - 68)
+    statusText.textColor = TEXT_MUTED
+
+    imui.endFrame("sidebar")
+shore
+
+swim drawHeader(): void
+    catch heading: object = imui.text("page_title", titleForTab(activeTab))
+    heading.move(SIDEBAR_W + MARGIN, 28)
+    heading.textColor = TEXT_PRIMARY
+
+    catch sub: object = imui.text("page_sub", subtitleForTab(activeTab))
+    sub.move(SIDEBAR_W + MARGIN, 48)
+    sub.textColor = TEXT_MUTED
+
+    pillBadge("env_badge", WIN_W - 150, 30, "PRODUCTION", ACCENT)
+    divider("header_divider", SIDEBAR_W, HEADER_H + 8, WIN_W - SIDEBAR_W)
+shore
+
+swim drawActivityRow(id: string, label: string, desc: string, tag: string, color: string, baseX: number, panelW: number, rowY: number): void
+    catch rowLabel: object = imui.text("row_" + id, label)
+    rowLabel.move(baseX + 20, rowY)
+    rowLabel.textColor = TEXT_PRIMARY
+    catch rowDesc: object = imui.text("rowdesc_" + id, desc)
+    rowDesc.move(baseX + 20, rowY + 16)
+    rowDesc.textColor = TEXT_MUTED
+    pillBadge("rowtag_" + id, baseX + panelW - 130, rowY + 4, tag, color)
+shore
+
+swim drawOverview(): void
+    catch baseX: number = SIDEBAR_W + MARGIN
+    catch baseY: number = HEADER_H + 32
+    catch cardW: number = 200
+    catch cardH: number = 78
+    catch gap: number = 16
+
+    statCard("card_throughput", baseX, baseY, cardW, cardH, "THROUGHPUT", "4,812 / min", ACCENT)
+    statCard("card_latency", baseX + (cardW + gap), baseY, cardW, cardH, "AVG LATENCY", "118 ms", INFO)
+    statCard("card_errors", baseX + (cardW + gap) * 2, baseY, cardW, cardH, "ERROR RATE", "0.04 %", WARN)
+    statCard("card_uptime", baseX + (cardW + gap) * 3, baseY, cardW, cardH, "UPTIME", "99.98 %", ACCENT)
+
+    catch panelY: number = baseY + cardH + 28
+    catch panelW: number = WIN_W - SIDEBAR_W - MARGIN * 2
+    catch panelH: number = 280
+
+    catch panel: object = imui.frame("activity_panel", baseX, panelY, panelW, panelH)
+    styleSurfacePanel(panel)
+    panel.padding = 20
+
+    catch panelTitle: object = imui.text("activity_title", "Recent Activity")
+    panelTitle.move(baseX + 20, panelY + 18)
+    panelTitle.textColor = TEXT_PRIMARY
+    divider("activity_div", baseX + 20, panelY + 44, panelW - 40)
+
+    catch rowY: number = panelY + 60
+    catch rowH: number = 48
+
+    drawActivityRow("deploy", "Deploy", "main to production", "SUCCESS", ACCENT, baseX, panelW, rowY)
+    divider("rowline_deploy", baseX + 20, rowY + rowH - 6, panelW - 40)
+    rowY += rowH
+
+    drawActivityRow("scale", "Scale event", "+4 worker nodes", "INFO", INFO, baseX, panelW, rowY)
+    divider("rowline_scale", baseX + 20, rowY + rowH - 6, panelW - 40)
+    rowY += rowH
+
+    drawActivityRow("alert", "Alert cleared", "memory pressure resolved", "OK", ACCENT, baseX, panelW, rowY)
+    divider("rowline_alert", baseX + 20, rowY + rowH - 6, panelW - 40)
+    rowY += rowH
+
+    drawActivityRow("config", "Config change", "rate limit updated", "NOTICE", WARN, baseX, panelW, rowY)
+
+    imui.endFrame("activity_panel")
+shore
+
+swim drawVolumeBars(baseX: number, baseY: number, panelW: number): void
+    catch bars: array = [38, 52, 41, 60, 73, 66, 80, 71, 90, 64, 58, 47]
+    catch barCount: number = len(bars)
+    catch chartInnerW: number = panelW - 40
+    catch barGap: number = 8
+    catch barW: number = (chartInnerW - barGap * (barCount - 1)) / barCount
+    catch chartFloor: number = baseY + 200
+    catch chartTop: number = baseY + 60
+    catch maxBarH: number = chartFloor - chartTop
+
+    catch i: number = 0
+    while i < barCount
+        catch h: number = toNumber(bars[i]) / 100 * maxBarH
+        catch bx: number = baseX + 20 + i * (barW + barGap)
+        catch by: number = chartFloor - h
+        catch bar: object = imui.frame("bar_" + toString(i), bx, by, barW, h)
+        bar.borderThickness = 0
+        bar.cornerRadius = 3
+        if i == 8
+            bar.bgColor = ACCENT
+        else
+            bar.bgColor = ACCENT_DIM
+        shore
+        imui.endFrame("bar_" + toString(i))
+        i++
+    shore
+shore
+
+swim drawLatencyRow(id: string, label: string, value: string, color: string, baseX: number, colW: number, ly: number): void
+    catch ll: object = imui.text("lr_" + id, label)
+    ll.move(baseX + 18, ly)
+    ll.textColor = TEXT_MUTED
+    catch lv: object = imui.text("lv_" + id, value)
+    lv.move(baseX + 70, ly)
+    lv.textColor = TEXT_PRIMARY
+    statusDot("ldot_" + id, baseX + colW - 30, ly + 2, color)
+shore
+
+swim drawLatencyPanel(baseX: number, lowerY: number, colW: number): void
+    catch latencyPanel: object = imui.frame("latency_panel", baseX, lowerY, colW, 140)
+    styleSurfacePanel(latencyPanel)
+
+    catch lTitle: object = imui.text("latency_title", "Latency Distribution")
+    lTitle.move(baseX + 18, lowerY + 16)
+    lTitle.textColor = TEXT_PRIMARY
+
+    catch ly: number = lowerY + 48
+    drawLatencyRow("p50", "p50", "42 ms", ACCENT, baseX, colW, ly)
+    ly += 26
+    drawLatencyRow("p95", "p95", "118 ms", WARN, baseX, colW, ly)
+    ly += 26
+    drawLatencyRow("p99", "p99", "310 ms", DANGER, baseX, colW, ly)
+
+    imui.endFrame("latency_panel")
+shore
+
+swim drawRegionRow(id: string, label: string, pct: number, color: string, regionX: number, trackW: number, ry: number): void
+    catch rl: object = imui.text("rg_" + id, label)
+    rl.move(regionX + 18, ry)
+    rl.textColor = TEXT_MUTED
+    progressTrack("rtrack_" + id, regionX + 18, ry + 16, trackW, pct, color)
+shore
+
+swim drawRegionPanel(regionX: number, lowerY: number, colW: number): void
+    catch regionPanel: object = imui.frame("region_panel", regionX, lowerY, colW, 140)
+    styleSurfacePanel(regionPanel)
+
+    catch rTitle: object = imui.text("region_title", "Traffic by Region")
+    rTitle.move(regionX + 18, lowerY + 16)
+    rTitle.textColor = TEXT_PRIMARY
+
+    catch trackW: number = colW - 36
+    catch ry: number = lowerY + 50
+
+    drawRegionRow("us-east", "US-East", 0.61, ACCENT, regionX, trackW, ry)
+    ry += 30
+    drawRegionRow("eu-west", "EU-West", 0.27, INFO, regionX, trackW, ry)
+    ry += 30
+    drawRegionRow("ap-south", "AP-South", 0.12, WARN, regionX, trackW, ry)
+
+    imui.endFrame("region_panel")
+shore
+
+swim drawMetrics(): void
+    catch baseX: number = SIDEBAR_W + MARGIN
+    catch baseY: number = HEADER_H + 32
+    catch panelW: number = WIN_W - SIDEBAR_W - MARGIN * 2
+
+    catch chartPanel: object = imui.frame("chart_panel", baseX, baseY, panelW, 220)
+    styleSurfacePanel(chartPanel)
+    chartPanel.padding = 20
+
+    catch chartTitle: object = imui.text("chart_title", "Request Volume - Last 12h")
+    chartTitle.move(baseX + 20, baseY + 18)
+    chartTitle.textColor = TEXT_PRIMARY
+    divider("chart_div", baseX + 20, baseY + 44, panelW - 40)
+
+    drawVolumeBars(baseX, baseY, panelW)
+
+    imui.endFrame("chart_panel")
+
+    catch lowerY: number = baseY + 220 + 20
+    catch colW: number = (panelW - 16) / 2
+
+    drawLatencyPanel(baseX, lowerY, colW)
+    catch regionX: number = baseX + colW + 16
+    drawRegionPanel(regionX, lowerY, colW)
+shore
+
+swim drawToggleRow(id: string, label: string, desc: string, baseX: number, panelW: number, rowY: number): bool
+    catch nLabel: object = imui.text(id + "_label", label)
+    nLabel.move(baseX + 24, rowY)
+    nLabel.textColor = TEXT_PRIMARY
+    catch nDesc: object = imui.text(id + "_desc", desc)
+    nDesc.move(baseX + 24, rowY + 18)
+    nDesc.textColor = TEXT_MUTED
+
+    catch toggle: object = imui.toggle(id, "")
+    toggle.move(baseX + panelW - 120, rowY)
+    toggle.onColor = ACCENT
+    toggle.offColor = SURFACE_ALT
+    toggle.knobColor = "#FFFFFF"
+
+    serve toggle.on
+shore
+
+swim drawSettings(): void
+    catch baseX: number = SIDEBAR_W + MARGIN
+    catch baseY: number = HEADER_H + 32
+    catch panelW: number = WIN_W - SIDEBAR_W - MARGIN * 2
+
+    catch panel: object = imui.frame("settings_panel", baseX, baseY, panelW, 360)
+    styleSurfacePanel(panel)
+    panel.padding = 24
+
+    catch panelTitle: object = imui.text("settings_title", "Preferences")
+    panelTitle.move(baseX + 24, baseY + 20)
+    panelTitle.textColor = TEXT_PRIMARY
+    divider("settings_div", baseX + 24, baseY + 50, panelW - 48)
+
+    catch rowY: number = baseY + 76
+
+    notifyOn = drawToggleRow("notify_toggle", "Notifications", "Receive alerts for critical events", baseX, panelW, rowY)
+    rowY += 56
+    divider("settings_div2", baseX + 24, rowY, panelW - 48)
+    rowY += 26
+
+    autosaveOn = drawToggleRow("autosave_toggle", "Autosave", "Save changes automatically every 5 minutes", baseX, panelW, rowY)
+    rowY += 56
+    divider("settings_div3", baseX + 24, rowY, panelW - 48)
+    rowY += 26
+
+    catch cBox: object = imui.checkbox("compact_checkbox", "Compact density")
+    cBox.move(baseX + 24, rowY)
+    cBox.checkColor = ACCENT
+    cBox.borderColor = BORDER
+    cBox.textColor = TEXT_PRIMARY
+    compactMode = cBox.checked
+
+    rowY += 44
+    divider("settings_div4", baseX + 24, rowY, panelW - 48)
+    rowY += 28
+
+    catch vLabel: object = imui.text("volume_label", "Alert volume")
+    vLabel.move(baseX + 24, rowY)
+    vLabel.textColor = TEXT_PRIMARY
+
+    catch volSlider: object = imui.slider("volume_slider", 0, 100, volume)
+    volSlider.move(baseX + 24, rowY + 26)
+    volSlider.trackWidth = panelW - 140
+    volSlider.trackColor = SURFACE_ALT
+    volSlider.handleColor = ACCENT
+    volume = volSlider.value
+
+    catch volValue: object = imui.text("volume_value", toString(math.round(volSlider.value)) + "%")
+    volValue.move(baseX + panelW - 80, rowY + 22)
+    volValue.textColor = ACCENT
+
+    imui.endFrame("settings_panel")
+shore
+
+swim tick(hdc: number): void
+    imui.resetFrame(hdc)
+    imui.setElement("background", "background", BG)
+
+    drawSidebar()
+    drawHeader()
+
+    if activeTab == "overview"
+        drawOverview()
+    shore
+    if activeTab == "metrics"
+        drawMetrics()
+    shore
+    if activeTab == "settings"
+        drawSettings()
+    shore
+shore
+
+imui.createWindow("Tidewatch - IMUI Showcase", WIN_W, WIN_H, tick)

@@ -9,10 +9,10 @@ import (
 func parseStatement(p *parser) Statement {
 	if p.currentTokenKind() == lexer.IDENT {
 		if stmt, ok := tryParseSwapStatement(p); ok {
-			 consumeSemicolon(p)
-			 return stmt
+			consumeSemicolon(p)
+			return stmt
 		}
-  }
+	}
 
 	statementFn, exists := statementLu[p.currentTokenKind()]
 	var stmt Statement
@@ -27,32 +27,32 @@ func parseStatement(p *parser) Statement {
 
 func tryParseSwapStatement(p *parser) (Statement, bool) {
 	if p.pos+1 >= len(p.tokens) || p.tokens[p.pos+1].Kind != lexer.COMMA {
-		 return nil, false
+		return nil, false
 	}
 
 	targets := []Expression{}
 	tok := p.advance()
 	targets = append(targets, SymbolExpression{Token: tok, Value: tok.Value})
 	for p.currentTokenKind() == lexer.COMMA {
-		 p.advance()
-		 targets = append(targets, parseExpression(p, assignmentBp))
+		p.advance()
+		targets = append(targets, parseExpression(p, assignmentBp))
 	}
 
 	if p.currentTokenKind() != lexer.ASSIGNMENT {
-		 panic(p.parseError("expected '=' after swap targets"))
+		panic(p.parseError("expected '=' after swap targets"))
 	}
 	p.advance()
 
 	values := []Expression{}
 	values = append(values, parseExpression(p, assignmentBp))
 	for p.currentTokenKind() == lexer.COMMA {
-		 p.advance()
-		 values = append(values, parseExpression(p, assignmentBp))
+		p.advance()
+		values = append(values, parseExpression(p, assignmentBp))
 	}
 
 	if len(targets) != len(values) {
-		 panic(p.parseError(fmt.Sprintf(
-			  "swap mismatch: %d targets but %d values", len(targets), len(values))))
+		panic(p.parseError(fmt.Sprintf(
+			"swap mismatch: %d targets but %d values", len(targets), len(values))))
 	}
 
 	return SwapStatement{Targets: targets, Values: values}, true
@@ -145,23 +145,23 @@ func parseFunctionParameters(p *parser) []FunctionParameter {
 	params := []FunctionParameter{}
 	p.expect(lexer.OPEN_PAREN)
 	for p.hasTokens() && p.currentTokenKind() != lexer.CLOSE_PAREN {
-		 isVariadic := false
-		 tok := p.currentToken()
-		 if p.currentTokenKind() == lexer.ELLIPSIS {
-			  isVariadic = true
-			  p.advance()
-			  tok = p.currentToken()
-		 }
-		 name := p.expectError(lexer.IDENT, p.parseError("expected parameter name")).Value
-		 p.expectError(lexer.COLON, p.parseError(fmt.Sprintf("expected ':' after parameter '%s'", name)))
-		 paramType := parseType(p, defaultBp)
-		 params = append(params, FunctionParameter{Token: tok, Name: name, Type: paramType, IsVariadic: isVariadic})
-		 if isVariadic {
-			  break
-		 }
-		 if p.currentTokenKind() == lexer.COMMA {
-			  p.advance()
-		 }
+		isVariadic := false
+		tok := p.currentToken()
+		if p.currentTokenKind() == lexer.ELLIPSIS {
+			isVariadic = true
+			p.advance()
+			tok = p.currentToken()
+		}
+		name := p.expectError(lexer.IDENT, p.parseError("expected parameter name")).Value
+		p.expectError(lexer.COLON, p.parseError(fmt.Sprintf("expected ':' after parameter '%s'", name)))
+		paramType := parseType(p, defaultBp)
+		params = append(params, FunctionParameter{Token: tok, Name: name, Type: paramType, IsVariadic: isVariadic})
+		if isVariadic {
+			break
+		}
+		if p.currentTokenKind() == lexer.COMMA {
+			p.advance()
+		}
 	}
 	p.expect(lexer.CLOSE_PAREN)
 	return params
@@ -187,9 +187,9 @@ func parseFunctionExpression(p *parser) Expression {
 	}
 	body := parseBody(p)
 	return FunctionExpression{
-		Parameters: params,
-		ReturnType: returnType,
-		Body:       body,
+		Parameters:	params,
+		ReturnType:	returnType,
+		Body:		body,
 	}
 }
 
@@ -214,7 +214,7 @@ func parseVarDeclarationStatement(p *parser) Statement {
 	if p.currentTokenKind() == lexer.ASSIGNMENT || p.currentTokenKind() == lexer.AS {
 		p.advance()
 		assignedValue = parseExpression(p, assignmentBp)
-  	} else if explicitType == nil {
+	} else if explicitType == nil {
 		panic(lexer.NewError(p.filePath, keyword.Line, keyword.Column,
 			fmt.Sprintf("variable '%s' must have a type annotation or an assigned value", varName)))
 	}
@@ -225,20 +225,20 @@ func parseVarDeclarationStatement(p *parser) Statement {
 	}
 
 	return VariableDecStatement{
-		Token:         keyword,
-		IsConstant:    isConst,
-		VariableName:  varName,
-		AssignedValue: assignedValue,
-		ExplicitType:  explicitType,
+		Token:		keyword,
+		IsConstant:	isConst,
+		VariableName:	varName,
+		AssignedValue:	assignedValue,
+		ExplicitType:	explicitType,
 	}
 }
 
 func parseTryBody(p *parser) BlockStatement {
 	body := []Statement{}
 	for p.hasTokens() &&
-		 p.currentTokenKind() != lexer.SHORE &&
-		 p.currentTokenKind() != lexer.HOOK {
-		 body = append(body, parseStatement(p))
+		p.currentTokenKind() != lexer.SHORE &&
+		p.currentTokenKind() != lexer.HOOK {
+		body = append(body, parseStatement(p))
 	}
 	return BlockStatement{Body: body}
 }
@@ -369,10 +369,10 @@ func parseSymbolType(p *parser) AstType {
 	tok := p.expect(lexer.IDENT)
 	name := tok.Value
 	builtinTypes := map[string]bool{
-		"number": true, "string": true, "bool": true,
-		"function": true, "void": true, "null": true, "array": true, "object": true,
+		"number":	true, "string": true, "bool": true,
+		"function":	true, "void": true, "null": true, "array": true, "object": true,
 	}
-	// Allow built-in types or user-defined school types (uppercase first letter by convention)
+
 	if !builtinTypes[name] && (len(name) == 0 || name[0] < 'A' || name[0] > 'Z') {
 		panic(lexer.NewError(p.filePath, tok.Line, tok.Column,
 			fmt.Sprintf("unknown type '%s': use a built-in type or a school name (must start with uppercase)", name)))
@@ -381,7 +381,7 @@ func parseSymbolType(p *parser) AstType {
 }
 
 func parseSchoolStatement(p *parser) Statement {
-	p.advance() // consume 'school'
+	p.advance()
 	nameTok := p.expectError(lexer.IDENT, p.parseError("expected school name after 'school'"))
 	name := nameTok.Value
 	if len(name) == 0 || name[0] < 'A' || name[0] > 'Z' {

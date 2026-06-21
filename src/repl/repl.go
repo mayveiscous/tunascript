@@ -87,15 +87,15 @@ func execREPL(source string, env *interpreter.Environment, cfg directives.Config
 }
 
 var openers = map[rune]rune{
-	'(': ')',
-	'[': ']',
-	'{': '}',
+	'(':	')',
+	'[':	']',
+	'{':	'}',
 }
 
 var closers = map[rune]bool{
-	')': true,
-	']': true,
-	'}': true,
+	')':	true,
+	']':	true,
+	'}':	true,
 }
 
 func isComplete(src string) bool {

@@ -1,0 +1,13 @@
+swim tick(hdc: number): void
+   hdc = hdc
+
+   catch frm as imui.frame("testFrame", 10, 10, 15, 15)
+     catch btn as imui.button("move", "Move")
+   imui.endFrame("testFrame")
+
+   btn.onClick(swim()
+      frm.move(frm.px + 3, frm.py)
+   shore)
+shore
+
+imui.createWindow("Test", 300, 300, tick)

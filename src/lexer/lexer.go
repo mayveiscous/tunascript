@@ -6,28 +6,28 @@ import (
 )
 
 type lexer struct {
-	Tokens   []Token
-	source   string
-	pos      int
-	line     int
-	col      int
-	patterns []regexPattern
-	filePath string
+	Tokens		[]Token
+	source		string
+	pos		int
+	line		int
+	col		int
+	patterns	[]regexPattern
+	filePath	string
 }
 
 type Token struct {
-	Value    string
-	Kind     TokenKind
-	Line     int
-	Column   int
-	FilePath string
+	Value		string
+	Kind		TokenKind
+	Line		int
+	Column		int
+	FilePath	string
 }
 
 type regexHandler func(lex *lexer, regex *regexp.Regexp)
 
 type regexPattern struct {
-	regex   *regexp.Regexp
-	handler regexHandler
+	regex	*regexp.Regexp
+	handler	regexHandler
 }
 
 func (lex *lexer) advanceN(n int) {
@@ -44,11 +44,11 @@ func (lex *lexer) advanceN(n int) {
 
 func NewToken(kind TokenKind, value string, line, col int, filePath string) Token {
 	return Token{
-		Value:    value,
-		Kind:     kind,
-		Line:     line,
-		Column:   col,
-		FilePath: filePath,
+		Value:		value,
+		Kind:		kind,
+		Line:		line,
+		Column:		col,
+		FilePath:	filePath,
 	}
 }
 
@@ -69,16 +69,16 @@ func TokenKindString(kind TokenKind) string {
 	return "unknown"
 }
 
-func (lex *lexer) push(token Token)  { 
-	lex.Tokens = append(lex.Tokens, token) 
+func (lex *lexer) push(token Token) {
+	lex.Tokens = append(lex.Tokens, token)
 }
 
-func (lex *lexer) remainder() string { 
-	return lex.source[lex.pos:] 
+func (lex *lexer) remainder() string {
+	return lex.source[lex.pos:]
 }
 
 func (lex *lexer) at_eof() bool {
-	 return lex.pos >= len(lex.source) 
+	return lex.pos >= len(lex.source)
 }
 
 func skipWhitespace(lex *lexer, regex *regexp.Regexp) {
@@ -88,13 +88,13 @@ func skipWhitespace(lex *lexer, regex *regexp.Regexp) {
 
 func createLexer(source string, filePath string) *lexer {
 	return &lexer{
-		 pos:      0,
-		 line:     1,
-		 col:      1,
-		 source:   source,
-		 Tokens:   make([]Token, 0),
-		 patterns: patterns,
-		 filePath: filePath,
+		pos:		0,
+		line:		1,
+		col:		1,
+		source:		source,
+		Tokens:		make([]Token, 0),
+		patterns:	patterns,
+		filePath:	filePath,
 	}
 }
 

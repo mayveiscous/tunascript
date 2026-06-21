@@ -123,7 +123,7 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 					loopEnv.Set(s.KeyVar, RuntimeValue{Kind: StringVal, Value: k})
 					loopEnv.Set(s.Iterator, props[k])
 				} else {
-					// single-binding form: bind the value (consistent with array iteration)
+
 					loopEnv.Set(s.Iterator, props[k])
 				}
 				r := EvaluateBlock(s.Body, loopEnv, loopCtx)
@@ -147,13 +147,13 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 	case tunaparser.FunctionDecStatement:
 		closureEnv := NewEnvironment(env)
 		fn := RuntimeValue{
-			Kind: FunctionVal,
+			Kind:	FunctionVal,
 			Value: FunctionValue{
-				Name:       s.Name,
-				Parameters: s.Parameters,
-				ReturnType: s.ReturnType,
-				Body:       s.Body,
-				Env:        closureEnv,
+				Name:		s.Name,
+				Parameters:	s.Parameters,
+				ReturnType:	s.ReturnType,
+				Body:		s.Body,
+				Env:		closureEnv,
 			},
 		}
 		closureEnv.Set(s.Name, fn)
@@ -191,36 +191,36 @@ func EvaluateStatement(stmt tunaparser.Statement, env *Environment, ctx ExecCont
 	case tunaparser.SwapStatement:
 		vals := make([]RuntimeValue, len(s.Values))
 		for i, v := range s.Values {
-			 vals[i] = EvaluateExpression(v, env, ctx)
+			vals[i] = EvaluateExpression(v, env, ctx)
 		}
 		for i, target := range s.Targets {
-			 sym, ok := target.(tunaparser.SymbolExpression)
-			 if !ok {
-				  panic(TunaError("swap targets must be simple variables"))
-			 }
-			 env.MustUpdate(sym.Value, vals[i])
+			sym, ok := target.(tunaparser.SymbolExpression)
+			if !ok {
+				panic(TunaError("swap targets must be simple variables"))
+			}
+			env.MustUpdate(sym.Value, vals[i])
 		}
 		return NullResult
 	case tunaparser.TryStatement:
 		var result EvalResult
 		func() {
-			 defer func() {
-				  if r := recover(); r != nil {
-						var msg string
-						switch v := r.(type) {
-						case string:
-							 msg = v
-						case error:
-							 msg = v.Error()
-						default:
-							 msg = fmt.Sprintf("%v", v)
-						}
-						hookEnv := NewEnvironment(env)
-						hookEnv.Set(s.ErrName, RuntimeValue{Kind: StringVal, Value: msg})
-						result = EvaluateBlock(s.Hook, hookEnv, ctx)
-				  }
-			 }()
-			 result = EvaluateBlock(s.Body, NewEnvironment(env), ctx)
+			defer func() {
+				if r := recover(); r != nil {
+					var msg string
+					switch v := r.(type) {
+					case string:
+						msg = v
+					case error:
+						msg = v.Error()
+					default:
+						msg = fmt.Sprintf("%v", v)
+					}
+					hookEnv := NewEnvironment(env)
+					hookEnv.Set(s.ErrName, RuntimeValue{Kind: StringVal, Value: msg})
+					result = EvaluateBlock(s.Hook, hookEnv, ctx)
+				}
+			}()
+			result = EvaluateBlock(s.Body, NewEnvironment(env), ctx)
 		}()
 		return result
 	default:

@@ -16,7 +16,7 @@ import (
 
 func registerBuiltins(env *Environment, ctx ExecContext) {
 	env.Set("bubble", RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
-		Name: "bubble",
+		Name:	"bubble",
 		Call: func(args []RuntimeValue) RuntimeValue {
 			parts := make([]string, len(args))
 			for i, arg := range args {
@@ -28,7 +28,7 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 	}})
 
 	env.Set("typeOf", RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
-		Name: "typeOf",
+		Name:	"typeOf",
 		Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("typeOf", args, 1)
 			return RuntimeValue{Kind: StringVal, Value: args[0].Kind.String()}
@@ -36,7 +36,7 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 	}})
 
 	env.Set("toNumber", RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
-		Name: "toNumber",
+		Name:	"toNumber",
 		Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("toNumber", args, 1)
 			switch args[0].Kind {
@@ -61,7 +61,7 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 	}})
 
 	env.Set("toString", RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
-		Name: "toString",
+		Name:	"toString",
 		Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("toString", args, 1)
 			return RuntimeValue{Kind: StringVal, Value: nativeToString(args[0])}
@@ -69,7 +69,7 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 	}})
 
 	env.Set("len", RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
-		Name: "len",
+		Name:	"len",
 		Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("len", args, 1)
 			switch args[0].Kind {
@@ -163,9 +163,9 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 			}
 			return RuntimeValue{Kind: NumberVal, Value: float64(lo + rand.Intn(hi-lo+1))}
 		}}},
-		"inf": {Kind: NumberVal, Value: math.Inf(1)},
-		"pi": {Kind: NumberVal, Value: math.Pi},
-		"e":  {Kind: NumberVal, Value: math.E},
+		"inf":	{Kind: NumberVal, Value: math.Inf(1)},
+		"pi":	{Kind: NumberVal, Value: math.Pi},
+		"e":	{Kind: NumberVal, Value: math.E},
 	}
 	env.Set("math", RuntimeValue{Kind: ObjectVal, Value: mathNS})
 
@@ -239,38 +239,38 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 			assertKind("string.slice", args[2], NumberVal)
 			runes := []rune(args[0].Value.(string))
 			start := int(args[1].Value.(float64))
-			end   := int(args[2].Value.(float64))
+			end := int(args[2].Value.(float64))
 			if start < 0 || end > len(runes) || start > end {
-				 panic(TunaError(fmt.Sprintf(
-					  "string.slice() index out of bounds: [%d:%d] on string of length %d",
-					  start, end, len(runes))))
+				panic(TunaError(fmt.Sprintf(
+					"string.slice() index out of bounds: [%d:%d] on string of length %d",
+					start, end, len(runes))))
 			}
 			return RuntimeValue{Kind: StringVal, Value: string(runes[start:end])}
-	  }}},
-	  
-	  "indexOf": {Kind: FunctionVal, Value: NativeFunction{Name: "indexOf", Call: func(args []RuntimeValue) RuntimeValue {
+		}}},
+
+		"indexOf": {Kind: FunctionVal, Value: NativeFunction{Name: "indexOf", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("string.indexOf", args, 2)
 			assertKind("string.indexOf", args[0], StringVal)
 			assertKind("string.indexOf", args[1], StringVal)
 			idx := strings.Index(args[0].Value.(string), args[1].Value.(string))
 			return RuntimeValue{Kind: NumberVal, Value: float64(idx)}
-	  }}},
-	  
-	  "charCode": {Kind: FunctionVal, Value: NativeFunction{Name: "charCode", Call: func(args []RuntimeValue) RuntimeValue {
+		}}},
+
+		"charCode": {Kind: FunctionVal, Value: NativeFunction{Name: "charCode", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("string.charCode", args, 1)
 			assertKind("string.charCode", args[0], StringVal)
 			runes := []rune(args[0].Value.(string))
 			if len(runes) == 0 {
-				 panic(TunaError("string.charCode() cannot get char code of empty string"))
+				panic(TunaError("string.charCode() cannot get char code of empty string"))
 			}
 			return RuntimeValue{Kind: NumberVal, Value: float64(runes[0])}
-	  }}},
-	  
-	  "fromCharCode": {Kind: FunctionVal, Value: NativeFunction{Name: "fromCharCode", Call: func(args []RuntimeValue) RuntimeValue {
+		}}},
+
+		"fromCharCode": {Kind: FunctionVal, Value: NativeFunction{Name: "fromCharCode", Call: func(args []RuntimeValue) RuntimeValue {
 			assertArgCount("string.fromCharCode", args, 1)
 			assertKind("string.fromCharCode", args[0], NumberVal)
 			return RuntimeValue{Kind: StringVal, Value: string(rune(int(args[0].Value.(float64))))}
-	  }}},
+		}}},
 	}
 	env.Set("string", RuntimeValue{Kind: ObjectVal, Value: stringNS})
 
@@ -432,16 +432,16 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 			assertKind("tui.color", args[0], StringVal)
 			assertKind("tui.color", args[1], StringVal)
 			colors := map[string]string{
-				"black":   "\033[30m",
-				"red":     "\033[31m",
-				"green":   "\033[32m",
-				"yellow":  "\033[33m",
-				"blue":    "\033[34m",
-				"magenta": "\033[35m",
-				"cyan":    "\033[36m",
-				"white":   "\033[37m",
-				"bold":    "\033[1m",
-				"dim":     "\033[2m",
+				"black":	"\033[30m",
+				"red":		"\033[31m",
+				"green":	"\033[32m",
+				"yellow":	"\033[33m",
+				"blue":		"\033[34m",
+				"magenta":	"\033[35m",
+				"cyan":		"\033[36m",
+				"white":	"\033[37m",
+				"bold":		"\033[1m",
+				"dim":		"\033[2m",
 			}
 			code, ok := colors[args[0].Value.(string)]
 			if !ok {
@@ -455,20 +455,28 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 			assertKind("tui.bar", args[1], NumberVal)
 			assertKind("tui.bar", args[2], NumberVal)
 			current := args[0].Value.(float64)
-			max     := args[1].Value.(float64)
-			width   := int(args[2].Value.(float64))
+			max := args[1].Value.(float64)
+			width := int(args[2].Value.(float64))
 			if max <= 0 || math.IsInf(max, 1) {
 				return RuntimeValue{Kind: StringVal, Value: "\033[36m" + strings.Repeat("█", width) + "\033[0m"}
 			}
 			filled := int(math.Round((current / max) * float64(width)))
-			if filled < 0 { filled = 0 }
-			if filled > width { filled = width }
+			if filled < 0 {
+				filled = 0
+			}
+			if filled > width {
+				filled = width
+			}
 			empty := width - filled
 			color := "\033[32m"
-			if current/max < 0.5 { color = "\033[33m" }
-			if current/max < 0.25 { color = "\033[31m" }
+			if current/max < 0.5 {
+				color = "\033[33m"
+			}
+			if current/max < 0.25 {
+				color = "\033[31m"
+			}
 			return RuntimeValue{Kind: StringVal,
-				Value: color + strings.Repeat("█", filled) + "\033[2m" + strings.Repeat("░", empty) + "\033[0m"}
+				Value:	color + strings.Repeat("█", filled) + "\033[2m" + strings.Repeat("░", empty) + "\033[0m"}
 		}}},
 		"print": {Kind: FunctionVal, Value: NativeFunction{Name: "print", Call: func(args []RuntimeValue) RuntimeValue {
 			parts := make([]string, len(args))
@@ -504,12 +512,16 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 		}}},
 		"width": {Kind: FunctionVal, Value: NativeFunction{Name: "width", Call: func(args []RuntimeValue) RuntimeValue {
 			width, _, err := term.GetSize(int(os.Stdout.Fd()))
-			if err != nil { width = 80 }
+			if err != nil {
+				width = 80
+			}
 			return RuntimeValue{Kind: NumberVal, Value: float64(width)}
 		}}},
 		"height": {Kind: FunctionVal, Value: NativeFunction{Name: "height", Call: func(args []RuntimeValue) RuntimeValue {
 			_, height, err := term.GetSize(int(os.Stdout.Fd()))
-			if err != nil { height = 24 }
+			if err != nil {
+				height = 24
+			}
 			return RuntimeValue{Kind: NumberVal, Value: float64(height)}
 		}}},
 	}
@@ -546,7 +558,7 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 				"path": {Kind: StringVal, Value: args[0].Value.(string)},
 			}
 			fileObj["__fd"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
-				Name: "__fd",
+				Name:	"__fd",
 				Call: func(writeArgs []RuntimeValue) RuntimeValue {
 					if len(writeArgs) == 0 {
 						return RuntimeValue{Kind: NullVal}
@@ -560,7 +572,7 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 				},
 			}}
 			fileObj["__close"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{
-				Name: "__close",
+				Name:	"__close",
 				Call: func(_ []RuntimeValue) RuntimeValue {
 					f.Close()
 					return RuntimeValue{Kind: NullVal}
@@ -608,20 +620,14 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 	}
 	env.Set("os", RuntimeValue{Kind: ObjectVal, Value: osNS})
 
-	// ------------------------------------------------------------------
-	// Persistent widget object cache — allows value-based properties
-	// (e.g. btn.textColor = "#FF0000") to survive across frames.
-	// ------------------------------------------------------------------
 	widgetObjCache := map[string]map[string]RuntimeValue{}
 
-	// Apply a cached color string to widget struct
 	applyColorProp := func(widget *imui.Widget, obj map[string]RuntimeValue, field string) {
 		if v, ok := obj[field]; ok && v.Kind == StringVal && v.Value.(string) != "" {
 			widget.SetColor(field, v.Value.(string))
 		}
 	}
 
-	// Apply common design props shared by most widgets
 	applyCommonDesignProps := func(widget *imui.Widget, obj map[string]RuntimeValue) {
 		if v, ok := obj["borderColor"]; ok && v.Kind == StringVal && v.Value.(string) != "" {
 			widget.SetColor("borderColor", v.Value.(string))
@@ -636,7 +642,6 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 		}
 	}
 
-	// Seed a new widget object with common entries and move() method
 	initWidgetObj := func(obj map[string]RuntimeValue, widget *imui.Widget) {
 		obj["px"] = RuntimeValue{Kind: NumberVal, Value: 0}
 		obj["py"] = RuntimeValue{Kind: NumberVal, Value: 0}
@@ -670,9 +675,9 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 		}}
 	}
 
-	// Helper: wrap a script function value as a Go func()
 	wrapVoidFn := func(fn RuntimeValue) func() {
-		cEnv := env; cCtx := ctx
+		cEnv := env
+		cCtx := ctx
 		return func() {
 			switch f := fn.Value.(type) {
 			case NativeFunction:
@@ -683,9 +688,9 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 		}
 	}
 
-	// Helper: wrap a script function value as a Go func(bool)
 	wrapBoolFn := func(fn RuntimeValue) func(bool) {
-		cEnv := env; cCtx := ctx
+		cEnv := env
+		cCtx := ctx
 		return func(b bool) {
 			arg := []RuntimeValue{{Kind: BoolVal, Value: b}}
 			switch f := fn.Value.(type) {
@@ -697,9 +702,9 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 		}
 	}
 
-	// Helper: wrap a script function value as a Go func(float64)
 	wrapNumFn := func(fn RuntimeValue) func(float64) {
-		cEnv := env; cCtx := ctx
+		cEnv := env
+		cCtx := ctx
 		return func(n float64) {
 			arg := []RuntimeValue{{Kind: NumberVal, Value: n}}
 			switch f := fn.Value.(type) {
@@ -713,7 +718,7 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 
 	imuiNS := map[string]RuntimeValue{
 		"createWindow": {Kind: FunctionVal, Value: NativeFunction{
-			Name: "createWindow",
+			Name:	"createWindow",
 			Call: func(args []RuntimeValue) RuntimeValue {
 
 				assertArgCount("imui.createWindow", args, 4)
@@ -725,68 +730,55 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 
 				capturedEnv := env
 				capturedCtx := ctx
-		
-				callback := func(hdc uintptr) {
-		
+
+				callback := func() {
 					switch f := fn.Value.(type) {
-		
 					case NativeFunction:
-						f.Call([]RuntimeValue{
-							{Kind: NumberVal, Value: float64(hdc)},
-						})
-		
+						f.Call([]RuntimeValue{})
 					case FunctionValue:
-						CallFunctionValue(
-							f,
-							[]RuntimeValue{
-								{Kind: NumberVal, Value: float64(hdc)},
-							},
-							capturedEnv,
-							capturedCtx,
-						)
+						CallFunctionValue(f, []RuntimeValue{}, capturedEnv, capturedCtx)
 					}
 				}
-		
+
 				imui.CreateWindow(title, width, height, callback)
-		
+
 				return RuntimeValue{Kind: NullVal}
 			},
 		}},
 
 		"setElement": {Kind: FunctionVal, Value: NativeFunction{
-			Name: "setElement",
+			Name:	"setElement",
 			Call: func(args []RuntimeValue) RuntimeValue {
-		
+
 				assertArgCount("imui.setElement", args, 3)
 				assertKind("imui.setElement", args[0], StringVal)
 				assertKind("imui.setElement", args[1], StringVal)
-		
+
 				id := args[0].Value.(string)
 				field := args[1].Value.(string)
-		
+
 				imui.SetElement(id, field, args[2].Value)
-		
+
+				return RuntimeValue{Kind: NullVal}
+			},
+		}},
+
+		"setColor": {Kind: FunctionVal, Value: NativeFunction{Name: "setColor",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("imui.setColor", args, 2)
+				assertKind("imui.setColor", args[0], StringVal)
+				imui.SetColor(args[0].Value.(string), args[1].Value)
 				return RuntimeValue{Kind: NullVal}
 			},
 		}},
 
 		"resetFrame": {Kind: FunctionVal, Value: NativeFunction{Name: "resetFrame", Call: func(args []RuntimeValue) RuntimeValue {
-			assertArgCount("imui.resetFrame", args, 1)
-			assertKind("imui.resetFrame", args[0], NumberVal)
-			imui.ResetFrame(uintptr(args[0].Value.(float64)))
+			imui.ResetFrame()
 			return RuntimeValue{Kind: NullVal}
 		}}},
 
-		// -------------------------------------------------------------------
-		// button(id, text) → {
-		//   clicked bool, px, py,
-		//   onClick(fn), onHover(fn), move(x,y),
-		//   idleColor, hoverColor, pressColor, textColor, borderColor,
-		//   borderThickness, cornerRadius, width, height  (assignable)
-		// }
-		// -------------------------------------------------------------------
 		"button": {Kind: FunctionVal, Value: NativeFunction{
-			Name: "button",
+			Name:	"button",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("imui.button", args, 2)
 				assertKind("imui.button", args[0], StringVal)
@@ -803,20 +795,23 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 					obj["clicked"] = RuntimeValue{Kind: BoolVal, Value: false}
 					obj["onClick"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "onClick",
 						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 { w.OnClick = wrapVoidFn(cbArgs[0]) }
+							if len(cbArgs) == 1 {
+								w.OnClick = wrapVoidFn(cbArgs[0])
+							}
 							return RuntimeValue{Kind: NullVal}
 						},
 					}}
 					obj["onHover"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "onHover",
 						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 { w.OnHover = wrapVoidFn(cbArgs[0]) }
+							if len(cbArgs) == 1 {
+								w.OnHover = wrapVoidFn(cbArgs[0])
+							}
 							return RuntimeValue{Kind: NullVal}
 						},
 					}}
 					widgetObjCache[id] = obj
 				}
 
-				// Apply cached properties before render
 				applyColorProp(widget, obj, "idleColor")
 				applyColorProp(widget, obj, "hoverColor")
 				applyColorProp(widget, obj, "pressColor")
@@ -841,15 +836,8 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 			},
 		}},
 
-		// -------------------------------------------------------------------
-		// text(id, content) → {
-		//   px, py, textColor, text, borderColor,
-		//   borderThickness, cornerRadius  (assignable),
-		//   move(x,y)
-		// }
-		// -------------------------------------------------------------------
 		"text": {Kind: FunctionVal, Value: NativeFunction{
-			Name: "text",
+			Name:	"text",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("imui.text", args, 2)
 				assertKind("imui.text", args[0], StringVal)
@@ -881,16 +869,8 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 			},
 		}},
 
-		// -------------------------------------------------------------------
-		// checkbox(id, label) → {
-		//   checked bool, px, py,
-		//   onChange(fn(bool)), move(x,y),
-		//   checkColor, borderColor, textColor, borderThickness,
-		//   cornerRadius, size, label  (assignable)
-		// }
-		// -------------------------------------------------------------------
 		"checkbox": {Kind: FunctionVal, Value: NativeFunction{
-			Name: "checkbox",
+			Name:	"checkbox",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("imui.checkbox", args, 2)
 				assertKind("imui.checkbox", args[0], StringVal)
@@ -907,7 +887,9 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 					obj["checked"] = RuntimeValue{Kind: BoolVal, Value: false}
 					obj["onChange"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
 						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 { w.OnChange = wrapBoolFn(cbArgs[0]) }
+							if len(cbArgs) == 1 {
+								w.OnChange = wrapBoolFn(cbArgs[0])
+							}
 							return RuntimeValue{Kind: NullVal}
 						},
 					}}
@@ -937,16 +919,8 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 			},
 		}},
 
-		// -------------------------------------------------------------------
-		// toggle(id, label) → {
-		//   on bool, px, py,
-		//   onChange(fn(bool)), move(x,y),
-		//   onColor, offColor, knobColor, textColor,
-		//   trackWidth, trackHeight, label  (assignable)
-		// }
-		// -------------------------------------------------------------------
 		"toggle": {Kind: FunctionVal, Value: NativeFunction{
-			Name: "toggle",
+			Name:	"toggle",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("imui.toggle", args, 2)
 				assertKind("imui.toggle", args[0], StringVal)
@@ -963,7 +937,9 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 					obj["on"] = RuntimeValue{Kind: BoolVal, Value: false}
 					obj["onChange"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
 						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 { w.OnChange = wrapBoolFn(cbArgs[0]) }
+							if len(cbArgs) == 1 {
+								w.OnChange = wrapBoolFn(cbArgs[0])
+							}
 							return RuntimeValue{Kind: NullVal}
 						},
 					}}
@@ -997,16 +973,8 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 			},
 		}},
 
-		// -------------------------------------------------------------------
-		// slider(id, min, max, value) → {
-		//   value float, px, py,
-		//   onChange(fn(float)), move(x,y),
-		//   trackColor, handleColor,
-		//   min, max, trackWidth, trackHeight, handleRadius  (assignable)
-		// }
-		// -------------------------------------------------------------------
 		"slider": {Kind: FunctionVal, Value: NativeFunction{
-			Name: "slider",
+			Name:	"slider",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("imui.slider", args, 4)
 				assertKind("imui.slider", args[0], StringVal)
@@ -1025,7 +993,9 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 					obj["value"] = RuntimeValue{Kind: NumberVal, Value: args[3].Value.(float64)}
 					obj["onChange"] = RuntimeValue{Kind: FunctionVal, Value: NativeFunction{Name: "onChange",
 						Call: func(cbArgs []RuntimeValue) RuntimeValue {
-							if len(cbArgs) == 1 { w.OnSlide = wrapNumFn(cbArgs[0]) }
+							if len(cbArgs) == 1 {
+								w.OnSlide = wrapNumFn(cbArgs[0])
+							}
 							return RuntimeValue{Kind: NullVal}
 						},
 					}}
@@ -1066,17 +1036,8 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 			},
 		}},
 
-		// -------------------------------------------------------------------
-		// frame(id, x, y, w, h) → {
-		//   px, py,
-		//   move(x,y),
-		//   bgColor, borderColor, borderThickness, cornerRadius,
-		//   padding  (assignable)
-		// }
-		// Must be paired with imui.endFrame(id).
-		// -------------------------------------------------------------------
 		"frame": {Kind: FunctionVal, Value: NativeFunction{
-			Name: "frame",
+			Name:	"frame",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("imui.frame", args, 5)
 				assertKind("imui.frame", args[0], StringVal)
@@ -1120,11 +1081,21 @@ func registerBuiltins(env *Environment, ctx ExecContext) {
 		}},
 
 		"endFrame": {Kind: FunctionVal, Value: NativeFunction{
-			Name: "endFrame",
+			Name:	"endFrame",
 			Call: func(args []RuntimeValue) RuntimeValue {
 				assertArgCount("imui.endFrame", args, 1)
 				assertKind("imui.endFrame", args[0], StringVal)
 				imui.EndFrame(args[0].Value.(string))
+				return RuntimeValue{Kind: NullVal}
+			},
+		}},
+
+		"setCursor": {Kind: FunctionVal, Value: NativeFunction{
+			Name:	"setCursor",
+			Call: func(args []RuntimeValue) RuntimeValue {
+				assertArgCount("imui.setCursor", args, 1)
+				assertKind("imui.setCursor", args[0], StringVal)
+				imui.SetCursor(args[0].Value.(string))
 				return RuntimeValue{Kind: NullVal}
 			},
 		}},
@@ -1167,57 +1138,57 @@ func runtimeEqual(a, b RuntimeValue) bool {
 func runtimeToNative(val RuntimeValue) any {
 	switch val.Kind {
 	case NumberVal:
-		 return val.Value.(float64)
+		return val.Value.(float64)
 	case StringVal:
-		 return val.Value.(string)
+		return val.Value.(string)
 	case BoolVal:
-		 return val.Value.(bool)
+		return val.Value.(bool)
 	case NullVal:
-		 return nil
+		return nil
 	case ArrayVal:
-		 arr := val.Value.([]RuntimeValue)
-		 result := make([]any, len(arr))
-		 for i, v := range arr {
-			  result[i] = runtimeToNative(v)
-		 }
-		 return result
+		arr := val.Value.([]RuntimeValue)
+		result := make([]any, len(arr))
+		for i, v := range arr {
+			result[i] = runtimeToNative(v)
+		}
+		return result
 	case ObjectVal:
-		 props := val.Value.(map[string]RuntimeValue)
-		 result := map[string]any{}
-		 for k, v := range props {
-			  result[k] = runtimeToNative(v)
-		 }
-		 return result
+		props := val.Value.(map[string]RuntimeValue)
+		result := map[string]any{}
+		for k, v := range props {
+			result[k] = runtimeToNative(v)
+		}
+		return result
 	default:
-		 return nil
+		return nil
 	}
 }
 
 func nativeToRuntime(val any) RuntimeValue {
 	if val == nil {
-		 return RuntimeValue{Kind: NullVal}
+		return RuntimeValue{Kind: NullVal}
 	}
 	switch v := val.(type) {
 	case float64:
-		 return RuntimeValue{Kind: NumberVal, Value: v}
+		return RuntimeValue{Kind: NumberVal, Value: v}
 	case string:
-		 return RuntimeValue{Kind: StringVal, Value: v}
+		return RuntimeValue{Kind: StringVal, Value: v}
 	case bool:
-		 return RuntimeValue{Kind: BoolVal, Value: v}
+		return RuntimeValue{Kind: BoolVal, Value: v}
 	case []any:
-		 arr := make([]RuntimeValue, len(v))
-		 for i, el := range v {
-			  arr[i] = nativeToRuntime(el)
-		 }
-		 return RuntimeValue{Kind: ArrayVal, Value: arr}
+		arr := make([]RuntimeValue, len(v))
+		for i, el := range v {
+			arr[i] = nativeToRuntime(el)
+		}
+		return RuntimeValue{Kind: ArrayVal, Value: arr}
 	case map[string]any:
-		 props := map[string]RuntimeValue{}
-		 for k, el := range v {
-			  props[k] = nativeToRuntime(el)
-		 }
-		 return RuntimeValue{Kind: ObjectVal, Value: props}
+		props := map[string]RuntimeValue{}
+		for k, el := range v {
+			props[k] = nativeToRuntime(el)
+		}
+		return RuntimeValue{Kind: ObjectVal, Value: props}
 	default:
-		 return RuntimeValue{Kind: NullVal}
+		return RuntimeValue{Kind: NullVal}
 	}
 }
 

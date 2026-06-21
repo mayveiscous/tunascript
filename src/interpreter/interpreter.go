@@ -10,16 +10,16 @@ import (
 	"os"
 )
 
-func returnResult(v RuntimeValue) EvalResult  {
-	return EvalResult{Value: v, Signal: sigReturn} 
+func returnResult(v RuntimeValue) EvalResult {
+	return EvalResult{Value: v, Signal: sigReturn}
 }
 
 func breakResult() EvalResult {
-	return EvalResult{Value: RuntimeValue{Kind: NullVal}, Signal: sigBreak} 
+	return EvalResult{Value: RuntimeValue{Kind: NullVal}, Signal: sigBreak}
 }
 
 func continueResult() EvalResult {
-	return EvalResult{Value: RuntimeValue{Kind: NullVal}, Signal: sigContinue} 
+	return EvalResult{Value: RuntimeValue{Kind: NullVal}, Signal: sigContinue}
 }
 
 func valueResult(v RuntimeValue) EvalResult {
@@ -39,8 +39,6 @@ func TunaError(msg string) string {
 	return fmt.Sprintf("\033[31m[Tunascript Error]\033[0m %s", msg)
 }
 
-// schoolRegistry holds all declared school types, keyed by name.
-// Populated at runtime when a SchoolStatement is evaluated.
 var schoolRegistry = map[string]tunaparser.SchoolStatement{}
 
 func resolveTypeName(t tunaparser.AstType) string {
@@ -74,7 +72,7 @@ func checkType(label string, val RuntimeValue, expected tunaparser.AstType) {
 				"type mismatch for '%s': expected '%s' but got '%s'",
 				label, resolveTypeName(expected), val.Kind.String())))
 		}
-		// Validate each element against the array's element type
+
 		elemTypeName := resolveTypeName(exp.Underlying)
 		if elemTypeName != "" {
 			for i, elem := range val.Value.([]RuntimeValue) {
@@ -86,7 +84,7 @@ func checkType(label string, val RuntimeValue, expected tunaparser.AstType) {
 		if want == "" {
 			return
 		}
-		// Check if this is a user-defined school type
+
 		if school, isSchool := schoolRegistry[want]; isSchool {
 			checkSchoolType(label, val, school)
 			return
@@ -121,7 +119,6 @@ func checkSchoolType(label string, val RuntimeValue, school tunaparser.SchoolSta
 	}
 	props := val.Value.(map[string]RuntimeValue)
 
-	// Check for missing or mistyped fields
 	for _, field := range school.Fields {
 		fieldVal, ok := props[field.Name]
 		if !ok {
@@ -132,7 +129,6 @@ func checkSchoolType(label string, val RuntimeValue, school tunaparser.SchoolSta
 		checkType(fmt.Sprintf("%s.%s", label, field.Name), fieldVal, field.Type)
 	}
 
-	// Strict: no extra fields beyond what the school defines
 	allowed := map[string]bool{}
 	for _, field := range school.Fields {
 		allowed[field.Name] = true
@@ -190,8 +186,8 @@ func CallFunctionValue(f FunctionValue, args []RuntimeValue, env *Environment, c
 		varParam := f.Parameters[len(f.Parameters)-1]
 		rest := args[fixedCount:]
 		fnEnv.Set(varParam.Name, RuntimeValue{
-			Kind:  ArrayVal,
-			Value: rest,
+			Kind:	ArrayVal,
+			Value:	rest,
 		})
 	}
 
@@ -218,11 +214,11 @@ func Interpret(block tunaparser.BlockStatement, filePath string, cfg directives.
 
 	builtinNames := map[string]bool{}
 	ctx := ExecContext{
-		filePath:     absPath,
-		moduleCache:  map[string]map[string]RuntimeValue{},
-		builtinNames: builtinNames,
-		rootDir:      rootDir,
-		Cfg:          cfg,
+		filePath:	absPath,
+		moduleCache:	map[string]map[string]RuntimeValue{},
+		builtinNames:	builtinNames,
+		rootDir:	rootDir,
+		Cfg:		cfg,
 	}
 
 	registerBuiltins(env, ctx)
@@ -276,13 +272,13 @@ func NewRuntimeEnvironmentWithRoot(filePath string, rootDir string, ctx ExecCont
 	osProps := osVal.Value.(map[string]RuntimeValue)
 
 	osProps["scriptDir"] = RuntimeValue{
-		Kind:  StringVal,
-		Value: scriptDir,
+		Kind:	StringVal,
+		Value:	scriptDir,
 	}
 
 	osProps["rootDir"] = RuntimeValue{
-		Kind:  StringVal,
-		Value: rootDir,
+		Kind:	StringVal,
+		Value:	rootDir,
 	}
 
 	return env
@@ -342,10 +338,10 @@ func loadModule(importPath string, ctx ExecContext) map[string]RuntimeValue {
 func executeModule(block tunaparser.BlockStatement, absPath string, parentCtx ExecContext) map[string]RuntimeValue {
 	SetCurrentFile(absPath)
 	ctx := ExecContext{
-		filePath:     absPath,
-		moduleCache:  parentCtx.moduleCache,
-		builtinNames: parentCtx.builtinNames,
-		rootDir:      parentCtx.rootDir,
+		filePath:	absPath,
+		moduleCache:	parentCtx.moduleCache,
+		builtinNames:	parentCtx.builtinNames,
+		rootDir:	parentCtx.rootDir,
 	}
 
 	env := NewEnvironment(nil)

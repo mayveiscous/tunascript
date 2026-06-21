@@ -8,26 +8,26 @@ import (
 )
 
 var builtinNames = map[string]bool{
-	"bubble":   true,
-	"typeOf":   true,
-	"toNumber":  true,
-	"toString": true,
-	"len":      true,
-	"json":     true,
-	"math":     true,
-	"string":   true,
-	"array":    true,
-	"tui":      true,
-	"os":       true,
-	"imui":     true,
+	"bubble":	true,
+	"typeOf":	true,
+	"toNumber":	true,
+	"toString":	true,
+	"len":		true,
+	"json":		true,
+	"math":		true,
+	"string":	true,
+	"array":	true,
+	"tui":		true,
+	"os":		true,
+	"imui":		true,
 }
 
 type Analyzer struct {
-	diagnostics []Diagnostic
-	scopes      []*scope
-	unreachable bool
-	cfg         directives.Config
-	filePath    string
+	diagnostics	[]Diagnostic
+	scopes		[]*scope
+	unreachable	bool
+	cfg		directives.Config
+	filePath	string
 }
 
 func Analyze(block tunaparser.BlockStatement, cfg directives.Config, filePath string) []Diagnostic {
@@ -77,10 +77,10 @@ func (a *Analyzer) pushFunctionScope() {
 		parentFn = s.inFunction
 	}
 	a.scopes = append(a.scopes, &scope{
-		inFunction:       true,
-		inLoop:           false,
-		variables:        map[string]*varInfo{},
-		savedUnreachable: a.unreachable,
+		inFunction:		true,
+		inLoop:			false,
+		variables:		map[string]*varInfo{},
+		savedUnreachable:	a.unreachable,
 	})
 	a.unreachable = false
 	_ = parentFn
@@ -92,10 +92,10 @@ func (a *Analyzer) pushLoopScope() {
 		parentFn = s.inFunction
 	}
 	a.scopes = append(a.scopes, &scope{
-		inFunction:       parentFn,
-		inLoop:           true,
-		variables:        map[string]*varInfo{},
-		savedUnreachable: a.unreachable,
+		inFunction:		parentFn,
+		inLoop:			true,
+		variables:		map[string]*varInfo{},
+		savedUnreachable:	a.unreachable,
 	})
 	a.unreachable = false
 }
@@ -108,10 +108,10 @@ func (a *Analyzer) pushBlockScope() {
 		parentLoop = s.inLoop
 	}
 	a.scopes = append(a.scopes, &scope{
-		inFunction:       parentFn,
-		inLoop:           parentLoop,
-		variables:        map[string]*varInfo{},
-		savedUnreachable: a.unreachable,
+		inFunction:		parentFn,
+		inLoop:			parentLoop,
+		variables:		map[string]*varInfo{},
+		savedUnreachable:	a.unreachable,
 	})
 	a.unreachable = false
 }
@@ -137,10 +137,10 @@ func (a *Analyzer) popScope() {
 func (a *Analyzer) declare(name string, line, col int, isConst bool) {
 	if s := a.currentScope(); s != nil {
 		s.variables[name] = &varInfo{
-			token:   tokenPos{line: line, col: col},
-			isUsed:  false,
-			isConst: isConst,
-			isParam: false,
+			token:		tokenPos{line: line, col: col},
+			isUsed:		false,
+			isConst:	isConst,
+			isParam:	false,
 		}
 	}
 }
@@ -148,10 +148,10 @@ func (a *Analyzer) declare(name string, line, col int, isConst bool) {
 func (a *Analyzer) declareParam(name string, line, col int) {
 	if s := a.currentScope(); s != nil {
 		s.variables[name] = &varInfo{
-			token:   tokenPos{line: line, col: col},
-			isUsed:  false,
-			isConst: false,
-			isParam: true,
+			token:		tokenPos{line: line, col: col},
+			isUsed:		false,
+			isConst:	false,
+			isParam:	true,
 		}
 	}
 }
@@ -188,10 +188,6 @@ func (a *Analyzer) inLoop() bool {
 	}
 	return false
 }
-
-// ---------------------------------------------------------------------------
-// Block / Statement / Expression walking
-// ---------------------------------------------------------------------------
 
 func (a *Analyzer) analyzeBlock(block tunaparser.BlockStatement) {
 	for _, stmt := range block.Body {
@@ -310,7 +306,7 @@ func (a *Analyzer) analyzeStatement(stmt tunaparser.Statement) {
 		for _, target := range s.Targets {
 			if sym, ok := target.(tunaparser.SymbolExpression); ok {
 				if _, found := a.resolve(sym.Value); !found {
-					// Implicit declaration — not an error
+
 				}
 			}
 		}
@@ -319,7 +315,6 @@ func (a *Analyzer) analyzeStatement(stmt tunaparser.Statement) {
 		}
 
 	case tunaparser.SchoolStatement:
-		// School declarations just register a type — no variable analysis needed
 
 	default:
 		panic(fmt.Sprintf("unknown statement type in analyzer: %T", stmt))
@@ -388,7 +383,6 @@ func (a *Analyzer) analyzeExpression(expr tunaparser.Expression) {
 		a.analyzeExpression(e.Expr)
 
 	case tunaparser.NumberExpression, tunaparser.StringExpression, tunaparser.BoolExpression:
-		// Literals — nothing to analyze
 
 	default:
 		panic(fmt.Sprintf("unknown expression type in analyzer: %T", expr))
@@ -404,10 +398,9 @@ func (a *Analyzer) analyzeAssignmentTarget(expr tunaparser.Expression) {
 		} else if builtinNames[sym.Value] {
 			a.add(DiagWarning, fmt.Sprintf("overwriting builtin '%s'", sym.Value), sym.Token.Line, sym.Token.Column)
 		}
-		// Bare assignments implicitly declare variables — not an error
+
 	}
-	// For member/index assignment targets (obj.prop = val, arr[0] = val),
-	// we walk the object/index expressions but don't check const
+
 	if mem, ok := expr.(tunaparser.MemberExpression); ok {
 		a.analyzeExpression(mem.Object)
 	}
