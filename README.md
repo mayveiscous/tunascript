@@ -9,6 +9,7 @@ Licensed under MIT.
 ## Installation
 
 Go to https://tunascript.org  (doesn't exist as of now) and install the latest version of **tunascript**.
+
 Add the directory you installed it to, to your path and restart your **IDE** if necessary.
 
 ---

@@ -9,6 +9,7 @@ import (
 	"tunascript/src/analyzer"
 	"tunascript/src/directives"
 	"tunascript/src/repl"
+	"tunascript/src/lsp"
 )
 
 func runFile(args []string) {
@@ -75,6 +76,12 @@ func main() {
 		runFile(args[1:])
 	case "serve":
 		repl.Start()
+	case "lsp":
+		server := lsp.NewServer()
+		if err := server.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "LSP server error: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		runFile(args)
 	}
@@ -82,9 +89,10 @@ func main() {
 
 func printUsage() {
 	fmt.Printf(`Usage:
-  tuna                    Print version and usage
+  tuna                   Print version and usage
   tuna <file.tuna>       Run a script
   tuna run <file.tuna>   Run a script
   tuna serve             Start interactive REPL
+  tuna lsp               Start LSP language server
 `)
 }
