@@ -138,9 +138,17 @@ func createParser(tokens []lexer.Token, filePath string) *parser {
 	return &parser{tokens: tokens, pos: 0, filePath: filePath}
 }
 
-func Parse(tokens []lexer.Token, filePath string) BlockStatement {
+func Parse(tokens []lexer.Token, filePath string) (result BlockStatement) {
 	body := make([]Statement, 0)
 	p := createParser(tokens, filePath)
+	defer func() {
+		if r := recover(); r != nil {
+			if err, ok := r.(*lexer.TunaError); ok {
+				panic(&ParseError{Err: err, Partial: BlockStatement{Body: body}})
+			}
+			panic(r)
+		}
+	}()
 	for p.hasTokens() {
 		body = append(body, parseStatement(p))
 	}

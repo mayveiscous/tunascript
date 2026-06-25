@@ -160,6 +160,11 @@ type CastStatement struct {
 	Inner Statement
 }
 
+type ParseError struct {
+	Err     *lexer.TunaError
+	Partial BlockStatement
+}
+
 type SymbolType struct{ Name string }
 type ArrayType struct{ Underlying AstType }
 

@@ -11,39 +11,47 @@ catch sl: object as {}
 catch lblSlider: object as {}
 catch footer: object as {}
 
-anchor THEME_LIGHT = {
-    windowBg: "#F0F0F0",
-    panelBg: "#FFFFFF",
-    text: "#000000",
-    border: "#CCCCCC"
+school Theme = {
+    WindowBg: string,
+    PanelBg: string,
+    Text: string,
+    Border: string
 }
 
-anchor THEME_DARK = {
-    windowBg: "#1E1E1E",
-    panelBg: "#2A2A2A",
-    text: "#FFFFFF",
-    border: "#444444"
+anchor THEME_LIGHT: Theme = {
+    WindowBg: "#F0F0F0",
+    PanelBg: "#FFFFFF",
+    Text: "#000000",
+    Border: "#CCCCCC"
 }
 
-swim applyTheme(theme: object): void
-    imui.setColor("background", theme.windowBg)
+anchor THEME_DARK: Theme = {
+    WindowBg: "#1E1E1E",
+    PanelBg: "#2A2A2A",
+    Text: "#FFFFFF",
+    Border: "#444444"
+}
 
-    panel.bgColor = theme.panelBg
+swim applyTheme(theme: Theme): void
+    imui.setColor("background", theme.WindowBg)
 
-    title.textColor = theme.text
-    lbl.textColor = theme.text
-    footer.textColor = theme.text
-    lblSlider.textColor = theme.text
 
-    btnInc.textColor = theme.text
-    btnInc.borderColor = theme.border
-    btnReset.textColor = theme.text
-    btnReset.borderColor = theme.border
+    panel.bgColor = theme.PanelBg
 
-    tgDark.textColor = theme.text
-    tgDark.borderColor = theme.border
+    title.textColor = theme.Text
+    lbl.textColor = theme.Text
+    footer.textColor = theme.Text
+    lblSlider.textColor = theme.Text
 
-    sl.borderColor = theme.border
+    btnInc.textColor = theme.Text
+    btnInc.borderColor = theme.Border
+    btnReset.textColor = theme.Text
+    btnReset.borderColor = theme.Border
+
+    tgDark.textColor = theme.Text
+    tgDark.borderColor = theme.Border
+
+    sl.borderColor = theme.Border
 shore
 
 swim onToggleTheme(state: bool): void
